@@ -2250,7 +2250,7 @@ with st.expander("⚙️  Business Description & Configuration", expanded=True):
         agent_emojis = {"ContentAgent":"✍️","PptxAgent":"📊","PdfAgent":"📄","SeoAgent":"🔍","DesignAgent":"🎨","QaAgent":"✅","CopyAgent":"📢"}
         selected = []
         for ag in all_agents:
-            checked = st.checkbox(f"{agent_emojis[ag]} {ag}", value=(ag in st.session_state.selected_agents), key=f"agchk_{ag}")
+            checked = st.checkbox(f"{agent_emojis[ag]} {ag}", value=(ag in st.session_state.selected_agents), key=f"agent_chk_{ag}")
             if checked:
                 selected.append(ag)
         st.session_state.selected_agents = selected
@@ -2630,10 +2630,10 @@ if st.session_state.page_data:
                 with st.expander(f"{feat.get('icon','⚡')} {feat.get('title', f'Feature {i+1}')}", expanded=False):
                     c1, c2 = st.columns([1, 4])
                     with c1:
-                        icon = st.text_input("Icon", value=feat.get('icon','⚡'), key=f"fi_{i}")
+                        icon = st.text_input("Icon", value=feat.get('icon','⚡'), key=f"feat_icon_{i}")
                     with c2:
-                        title = st.text_input("Title", value=feat.get('title',''), key=f"ft_{i}")
-                    desc = st.text_area("Description", value=feat.get('desc',''), key=f"fd_{i}", height=80)
+                        title = st.text_input("Title", value=feat.get('title',''), key=f"feat_title_{i}")
+                    desc = st.text_area("Description", value=feat.get('desc',''), key=f"feat_desc_{i}", height=80)
                     new_features.append({"icon": icon, "title": title, "desc": desc})
         data['features'] = new_features
         
@@ -2651,12 +2651,12 @@ if st.session_state.page_data:
             with st.expander(f"💬 {t.get('name', f'Testimonial {i+1}')}", expanded=False):
                 c1, c2, c3 = st.columns([2, 2, 1])
                 with c1:
-                    t['name'] = st.text_input("Name", value=t.get('name',''), key=f"tn_{i}")
+                    t['name'] = st.text_input("Name", value=t.get('name',''), key=f"test_name_{i}")
                 with c2:
-                    t['role'] = st.text_input("Role / Company", value=t.get('role',''), key=f"tr_{i}")
+                    t['role'] = st.text_input("Role / Company", value=t.get('role',''), key=f"test_role_{i}")
                 with c3:
-                    t['rating'] = st.slider("⭐", 1, 5, t.get('rating',5), key=f"trt_{i}")
-                t['text'] = st.text_area("Testimonial Text", value=t.get('text',''), key=f"tt_{i}", height=80)
+                    t['rating'] = st.slider("⭐", 1, 5, t.get('rating',5), key=f"test_rating_{i}")
+                t['text'] = st.text_area("Testimonial Text", value=t.get('text',''), key=f"test_text_{i}", height=80)
         
         if st.button("➕ Add Testimonial"):
             data['testimonials'].append({"name":"New Person","role":"Title, Company","text":"Amazing product.","rating":5})
@@ -2668,8 +2668,8 @@ if st.session_state.page_data:
         faq = data.get('faq', [])
         for i, item in enumerate(faq):
             with st.expander(f"❓ {item.get('q','FAQ')[:55]}...", expanded=False):
-                item['q'] = st.text_input("Question", value=item.get('q',''), key=f"fq_{i}")
-                item['a'] = st.text_area("Answer", value=item.get('a',''), key=f"fa_{i}", height=80)
+                item['q'] = st.text_input("Question", value=item.get('q',''), key=f"faq_q_{i}")
+                item['a'] = st.text_area("Answer", value=item.get('a',''), key=f"faq_a_{i}", height=80)
         
         if st.button("➕ Add FAQ"):
             data['faq'].append({"q":"New question?","a":"Answer here."})
@@ -2682,8 +2682,8 @@ if st.session_state.page_data:
         stat_cols = st.columns(4)
         for i, stat in enumerate(stats):
             with stat_cols[i % 4]:
-                stat['num'] = st.text_input("Number", value=stat.get('num',''), key=f"sn_{i}")
-                stat['label'] = st.text_input("Label", value=stat.get('label',''), key=f"sl_{i}")
+                stat['num'] = st.text_input("Number", value=stat.get('num',''), key=f"stat_num_{i}")
+                stat['label'] = st.text_input("Label", value=stat.get('label',''), key=f"stat_label_{i}")
         
         st.markdown("<hr>", unsafe_allow_html=True)
         st.markdown('<div class="chip chip-blue">🧭 NAVIGATION</div>', unsafe_allow_html=True)
@@ -2744,7 +2744,7 @@ if st.session_state.page_data:
                         <div style="background:{tcolors[1]}"></div>
                         <div style="background:{tcolors[2]}"></div>
                     </div>""", unsafe_allow_html=True)
-                    if st.button(tname[:8], key=f"thm_{tname}"):
+                    if st.button(tname[:8], key=f"theme_btn_{tname}"):
                         st.session_state.brand_color = tcolors[0]
                         st.session_state.accent_color = tcolors[1]
                         st.session_state.bg_color = tcolors[2]
@@ -2807,44 +2807,44 @@ if st.session_state.page_data:
                 with st.expander(f"Slide {i+1}: {slide.get('title','')}", expanded=False):
                     c1, c2 = st.columns([3, 1])
                     with c1:
-                        slide['title'] = st.text_input("Title", value=slide.get('title',''), key=f"st_{i}")
+                        slide['title'] = st.text_input("Title", value=slide.get('title',''), key=f"slide_title_{i}")
                     with c2:
                         layout_opts = ["content", "stats", "cover", "closing"]
                         cur_layout = slide.get('layout','content')
                         if cur_layout not in layout_opts:
                             cur_layout = "content"
                         slide['layout'] = st.selectbox("Layout", layout_opts, 
-                            index=layout_opts.index(cur_layout), key=f"sl_{i}")
+                            index=layout_opts.index(cur_layout), key=f"slide_layout_{i}")
                     
                     if slide.get('bullets'):
                         bullets_str = "\n".join(slide['bullets'])
                         new_bullets = st.text_area("Bullets (one per line)", value=bullets_str, 
-                                                   key=f"sb_{i}", height=100)
+                                                   key=f"slide_bullets_{i}", height=100)
                         slide['bullets'] = [b.strip() for b in new_bullets.split('\n') if b.strip()]
                     elif slide.get('body'):
                         slide['body'] = st.text_area("Body", value=slide.get('body',''), 
-                                                      key=f"sbody_{i}", height=100)
+                                                      key=f"slide_body_{i}", height=100)
                     elif slide.get('cta'):
                         slide['cta'] = st.text_area("CTA Text", value=slide.get('cta',''), 
-                                                     key=f"scta_{i}", height=80)
+                                                     key=f"slide_cta_{i}", height=80)
                     elif slide.get('subtitle'):
                         slide['subtitle'] = st.text_area("Subtitle", value=slide.get('subtitle',''), 
-                                                          key=f"ssub_{i}", height=60)
+                                                          key=f"slide_subtitle_{i}", height=60)
                     
                     if slide.get('stats'):
                         for si, stat in enumerate(slide['stats']):
                             sc1, sc2 = st.columns(2)
                             with sc1:
-                                stat['num'] = st.text_input("Stat #", value=stat.get('num',''), key=f"ssn_{i}_{si}")
+                                stat['num'] = st.text_input("Stat #", value=stat.get('num',''), key=f"slide_statnum_{i}_{si}")
                             with sc2:
-                                stat['label'] = st.text_input("Label", value=stat.get('label',''), key=f"ssl_{i}_{si}")
+                                stat['label'] = st.text_input("Label", value=stat.get('label',''), key=f"slide_statlabel_{i}_{si}")
                     
                     if slide.get('speaker_notes'):
                         slide['speaker_notes'] = st.text_area("Speaker Notes", 
-                            value=slide.get('speaker_notes',''), key=f"sn_n_{i}", height=70)
+                            value=slide.get('speaker_notes',''), key=f"slide_notes_{i}", height=70)
                     
                     if slide.get('icon') is not None:
-                        slide['icon'] = st.text_input("Slide Icon", value=slide.get('icon',''), key=f"si_{i}")
+                        slide['icon'] = st.text_input("Slide Icon", value=slide.get('icon',''), key=f"slide_icon_{i}")
                     
                     updated_slides.append(slide)
             
@@ -2897,15 +2897,15 @@ if st.session_state.page_data:
                 with st.expander(f"📄 {doc.get('type','Document')} — {doc.get('title','')}", expanded=False):
                     c1, c2 = st.columns([2, 1])
                     with c1:
-                        doc['title'] = st.text_input("Document Title", value=doc.get('title',''), key=f"dt_{di}")
-                        doc['subtitle'] = st.text_input("Subtitle", value=doc.get('subtitle',''), key=f"ds_{di}")
+                        doc['title'] = st.text_input("Document Title", value=doc.get('title',''), key=f"pdf_title_{di}")
+                        doc['subtitle'] = st.text_input("Subtitle", value=doc.get('subtitle',''), key=f"pdf_subtitle_{di}")
                     with c2:
-                        doc['type'] = st.text_input("Document Type", value=doc.get('type',''), key=f"dtp_{di}")
+                        doc['type'] = st.text_input("Document Type", value=doc.get('type',''), key=f"pdf_type_{di}")
                         doc['classification'] = st.selectbox("Classification", 
                             ["Confidential","Internal","Public","Restricted"],
                             index=["Confidential","Internal","Public","Restricted"].index(doc.get('classification','Confidential'))
                             if doc.get('classification','Confidential') in ["Confidential","Internal","Public","Restricted"] else 0,
-                            key=f"dcl_{di}")
+                            key=f"pdf_class_{di}")
                     
                     for si, sec in enumerate(doc.get('sections', [])):
                         st.markdown(f"**Section: {sec.get('title','')}**")
@@ -2913,19 +2913,19 @@ if st.session_state.page_data:
                         with sec_cols[0]:
                             if sec.get('intro') is not None:
                                 sec['intro'] = st.text_area(f"Intro", value=sec.get('intro',''), 
-                                    key=f"si_{di}_{si}", height=80)
+                                    key=f"pdf_intro_{di}_{si}", height=80)
                             if sec.get('highlight') is not None:
                                 sec['highlight'] = st.text_area(f"Highlight Quote", 
-                                    value=sec.get('highlight',''), key=f"sh_{di}_{si}", height=70)
+                                    value=sec.get('highlight',''), key=f"pdf_highlight_{di}_{si}", height=70)
                         with sec_cols[1]:
                             if sec.get('body') is not None:
                                 sec['body'] = st.text_area(f"Body", value=sec.get('body',''),
-                                    key=f"sb_{di}_{si}", height=80)
+                                    key=f"pdf_body_{di}_{si}", height=80)
                         
                         if sec.get('bullets'):
                             bullets_str = "\n".join(sec['bullets'])
                             new_b = st.text_area(f"Bullets (one per line)", value=bullets_str,
-                                key=f"sbul_{di}_{si}", height=100)
+                                key=f"pdf_bullets_{di}_{si}", height=100)
                             sec['bullets'] = [b.strip() for b in new_b.split('\n') if b.strip()]
             
             st.session_state.pdf_docs = pdf_d
@@ -3074,7 +3074,7 @@ if st.session_state.page_data:
                     for i, email in enumerate(copy_d['email_sequence']):
                         st.markdown(f"**Email {i+1} ({email.get('type','')})** — Subject: {email.get('subject','')}")
                         st.text_area(f"Email {i+1} Body", value=email.get('body',''), 
-                                    key=f"em_{i}", height=120)
+                                    key=f"email_body_{i}", height=120)
             
             # Ad copy
             if copy_d.get('ad_copy'):
@@ -3086,7 +3086,7 @@ if st.session_state.page_data:
                             st.markdown(f"*Headline:* {ad.get('headline','')}")
                         with c2:
                             st.text_area(f"Ad Description", value=ad.get('description',''), 
-                                        key=f"ad_{i}", height=80)
+                                        key=f"ad_desc_{i}", height=80)
                         st.markdown("<hr>", unsafe_allow_html=True)
             
             # Social posts
@@ -3095,7 +3095,7 @@ if st.session_state.page_data:
                     for i, post in enumerate(copy_d['social_posts']):
                         st.markdown(f"**{post.get('platform','')}**")
                         st.text_area(f"Post Text", value=post.get('text',''), 
-                                    key=f"post_{i}", height=100)
+                                    key=f"post_text_{i}", height=100)
                         if post.get('hashtags'):
                             st.markdown(f"Hashtags: {' '.join(post['hashtags'])}")
                         st.markdown("<hr>", unsafe_allow_html=True)
