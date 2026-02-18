@@ -6,6 +6,7 @@ from io import BytesIO
 import base64
 import requests
 from openai import OpenAI
+import time
 
 # ─────────────────────────────────────────
 # PAGE CONFIG
@@ -203,6 +204,36 @@ label {
     line-height: 1.5 !important;
     overflow-x: auto !important;
 }
+
+.preview-frame {
+    border: 1px solid #2e3245;
+    border-radius: 8px;
+    background: #f5f3ef;
+    min-height: 600px;
+    padding: 0;
+    overflow: hidden;
+}
+
+.feature-item {
+    background: #1a1d27;
+    border: 1px solid #2e3245;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.feature-item input {
+    flex: 1;
+    background: #0f1117 !important;
+    border: 1px solid #2e3245 !important;
+    padding: 8px 12px !important;
+    border-radius: 6px !important;
+    color: #f0ede8 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -215,8 +246,8 @@ def hex_to_rgb(hex_color):
     hex_color = hex_color.lstrip('#')
     return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
-def generate_content_with_openai(topic, content_type, api_key, model="gpt-4o-mini"):
-    """Generate landing page content using OpenAI API"""
+def generate_with_llm(prompt, api_key, model="gpt-4o-mini", max_tokens=2000):
+    """Generate content using OpenAI API"""
     
     if not api_key:
         st.error("❌ OpenAI API key is required. Add it in the sidebar.")
@@ -225,25 +256,14 @@ def generate_content_with_openai(topic, content_type, api_key, model="gpt-4o-min
     try:
         client = OpenAI(api_key=api_key)
         
-        prompts = {
-            "title": f"Generate a compelling, short landing page title (max 10 words) for a {topic} business. Return ONLY the title, no explanation.",
-            "subtitle": f"Generate an engaging subtitle (max 15 words) for a {topic} landing page that complements the main title. Return ONLY the subtitle.",
-            "hero": f"Write a compelling hero section text (150-200 words) for a {topic} landing page. Make it persuasive and action-oriented. Include benefits and value proposition.",
-            "features": f"Generate 6 unique, compelling features/benefits for a {topic} business. Format as a numbered list. Each feature should be 1-2 sentences.",
-            "cta": f"Generate 3 different call-to-action button texts for a {topic} landing page. Format as a numbered list. Make them action-oriented and compelling."
-        }
-        
-        prompt = prompts.get(content_type, prompts["hero"])
-        
-        with st.spinner(f"🤖 Generating {content_type}..."):
-            response = client.messages.create(
-                model=model,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7,
-                max_tokens=1000
-            )
+        response = client.messages.create(
+            model=model,
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=max_tokens
+        )
         
         return response.content[0].text
     
@@ -251,53 +271,45 @@ def generate_content_with_openai(topic, content_type, api_key, model="gpt-4o-min
         st.error(f"❌ OpenAI API Error: {str(e)}")
         return None
 
-def publish_to_wordpress(wp_url, wp_username, wp_password, page_title, page_content, shortcodes):
-    """Publish landing page to WordPress using REST API"""
+def generate_landing_page_content(business_description, api_key, model="gpt-4o-mini"):
+    """Generate complete landing page content using LLM"""
     
-    if not all([wp_url, wp_username, wp_password]):
-        st.error("❌ WordPress credentials are required. Add them in the sidebar.")
-        return False
+    prompt = f"""You are a professional copywriter and landing page expert. Create a complete, compelling landing page for the following business:
+
+Business Description: {business_description}
+
+Generate the following in JSON format:
+{{
+    "title": "A powerful, concise main headline (5-10 words)",
+    "subtitle": "An engaging subheading that complements the title (10-15 words)",
+    "hero_text": "A compelling hero section paragraph (150-250 words) that explains the value proposition, benefits, and why customers should care",
+    "features": [
+        "Feature 1 with detailed description (15-25 words)",
+        "Feature 2 with detailed description (15-25 words)",
+        "Feature 3 with detailed description (15-25 words)",
+        "Feature 4 with detailed description (15-25 words)",
+        "Feature 5 with detailed description (15-25 words)",
+        "Feature 6 with detailed description (15-25 words)"
+    ],
+    "cta_text": "A compelling call-to-action button text (2-4 words)",
+    "cta_description": "A brief description of what happens after clicking (20-30 words)"
+}}
+
+Make the content persuasive, professional, and conversion-focused. Use power words and psychological triggers."""
     
-    try:
-        # Prepare WordPress REST API endpoint
-        api_endpoint = f"{wp_url.rstrip('/')}/wp-json/wp/v2/pages"
-        
-        # Create Basic Auth header
-        auth_string = f"{wp_username}:{wp_password}"
-        auth_bytes = auth_string.encode('utf-8')
-        auth_b64 = base64.b64encode(auth_bytes).decode('utf-8')
-        
-        headers = {
-            "Authorization": f"Basic {auth_b64}",
-            "Content-Type": "application/json"
-        }
-        
-        # Prepare page content with shortcodes
-        full_content = f"{page_content}\n\n{shortcodes}"
-        
-        payload = {
-            "title": page_title,
-            "content": full_content,
-            "status": "draft",
-            "comment_status": "closed"
-        }
-        
-        with st.spinner("📤 Publishing to WordPress..."):
-            response = requests.post(api_endpoint, json=payload, headers=headers, timeout=30)
-        
-        if response.status_code == 201:
-            page_data = response.json()
-            page_id = page_data.get('id')
-            page_link = page_data.get('link')
-            st.success(f"✅ Page published successfully!\n\n**Page ID:** {page_id}\n\n**Link:** {page_link}")
-            return True
-        else:
-            st.error(f"❌ WordPress Error: {response.status_code} - {response.text}")
-            return False
+    content = generate_with_llm(prompt, api_key, model, max_tokens=2500)
     
-    except Exception as e:
-        st.error(f"❌ WordPress Connection Error: {str(e)}")
-        return False
+    if content:
+        try:
+            # Extract JSON from response
+            import re
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            if json_match:
+                return json.loads(json_match.group())
+        except:
+            pass
+    
+    return None
 
 def generate_divi_shortcodes(title, subtitle, hero_text, cta_text, cta_url, features, brand_color):
     """Generate Divi-compatible WordPress shortcodes"""
@@ -524,6 +536,7 @@ def generate_html(title, subtitle, hero_text, cta_text, cta_url, features, brand
             color: {brand_color};
             font-weight: 600;
             font-size: 1.1rem;
+            line-height: 1.6;
         }}
 
         @media (max-width: 768px) {{
@@ -687,6 +700,7 @@ body {{
     color: var(--brand-color);
     font-weight: 600;
     font-size: 1.1em;
+    line-height: 1.6;
 }}
 
 @media (max-width: 768px) {{
@@ -709,14 +723,59 @@ body {{
 """
     return css
 
+def publish_to_wordpress(wp_url, wp_username, wp_password, page_title, page_content, shortcodes):
+    """Publish landing page to WordPress using REST API"""
+    
+    if not all([wp_url, wp_username, wp_password]):
+        st.error("❌ WordPress credentials are required. Add them in the sidebar.")
+        return False
+    
+    try:
+        api_endpoint = f"{wp_url.rstrip('/')}/wp-json/wp/v2/pages"
+        
+        auth_string = f"{wp_username}:{wp_password}"
+        auth_bytes = auth_string.encode('utf-8')
+        auth_b64 = base64.b64encode(auth_bytes).decode('utf-8')
+        
+        headers = {
+            "Authorization": f"Basic {auth_b64}",
+            "Content-Type": "application/json"
+        }
+        
+        full_content = f"{page_content}\n\n{shortcodes}"
+        
+        payload = {
+            "title": page_title,
+            "content": full_content,
+            "status": "draft",
+            "comment_status": "closed"
+        }
+        
+        with st.spinner("📤 Publishing to WordPress..."):
+            response = requests.post(api_endpoint, json=payload, headers=headers, timeout=30)
+        
+        if response.status_code == 201:
+            page_data = response.json()
+            page_id = page_data.get('id')
+            page_link = page_data.get('link')
+            st.success(f"✅ Page published successfully!\n\n**Page ID:** {page_id}\n\n**Link:** {page_link}")
+            return True
+        else:
+            st.error(f"❌ WordPress Error: {response.status_code} - {response.text}")
+            return False
+    
+    except Exception as e:
+        st.error(f"❌ WordPress Connection Error: {str(e)}")
+        return False
+
 # ─────────────────────────────────────────
 # SIDEBAR - OPENAI & WORDPRESS CONFIG
 # ─────────────────────────────────────────
-st.sidebar.markdown('<p class="section-label">🤖 AI Content Generation</p>', unsafe_allow_html=True)
+st.sidebar.markdown('<p class="section-label">⚙️ Configuration</p>', unsafe_allow_html=True)
 
 with st.sidebar:
-    st.markdown("### 🎨 Landing Page Generator")
-    st.markdown("Create professional landing pages with AI-generated content, Divi shortcodes, and WordPress integration.")
+    st.markdown("### 🎨 AI Landing Page Generator")
+    st.markdown("Create professional landing pages with AI-generated content, live preview, and WordPress integration.")
     
     # OpenAI Configuration
     st.markdown("---")
@@ -734,42 +793,6 @@ with st.sidebar:
         help="Choose the AI model for content generation"
     )
     
-    st.markdown("**Generate Content with AI:**")
-    
-    col_ai1, col_ai2 = st.columns(2)
-    with col_ai1:
-        if st.button("📝 Generate Title", use_container_width=True):
-            st.session_state.ai_topic = st.session_state.get('ai_topic', 'general')
-            title = generate_content_with_openai(st.session_state.ai_topic, "title", openai_api_key, ai_model)
-            if title:
-                st.session_state.page_title = title.strip()
-                st.rerun()
-    
-    with col_ai2:
-        if st.button("📝 Generate Subtitle", use_container_width=True):
-            st.session_state.ai_topic = st.session_state.get('ai_topic', 'general')
-            subtitle = generate_content_with_openai(st.session_state.ai_topic, "subtitle", openai_api_key, ai_model)
-            if subtitle:
-                st.session_state.page_subtitle = subtitle.strip()
-                st.rerun()
-    
-    col_ai3, col_ai4 = st.columns(2)
-    with col_ai3:
-        if st.button("📝 Generate Hero Text", use_container_width=True):
-            st.session_state.ai_topic = st.session_state.get('ai_topic', 'general')
-            hero = generate_content_with_openai(st.session_state.ai_topic, "hero", openai_api_key, ai_model)
-            if hero:
-                st.session_state.hero_text = hero.strip()
-                st.rerun()
-    
-    with col_ai4:
-        if st.button("📝 Generate Features", use_container_width=True):
-            st.session_state.ai_topic = st.session_state.get('ai_topic', 'general')
-            features = generate_content_with_openai(st.session_state.ai_topic, "features", openai_api_key, ai_model)
-            if features:
-                st.session_state.features_text = features.strip()
-                st.rerun()
-    
     # WordPress Configuration
     st.markdown("---")
     st.markdown("### 📱 WordPress API Setup")
@@ -777,7 +800,7 @@ with st.sidebar:
     wp_url = st.text_input(
         "WordPress Site URL",
         placeholder="https://example.com",
-        help="Your WordPress site URL (e.g., https://mysite.com)"
+        help="Your WordPress site URL"
     )
     
     wp_username = st.text_input(
@@ -788,272 +811,295 @@ with st.sidebar:
     wp_password = st.text_input(
         "WordPress Password",
         type="password",
-        help="Your WordPress password (or Application Password)"
+        help="Your WordPress password or Application Password"
     )
-    
-    st.markdown("**Note:** Use Application Passwords for better security. Generate one in WordPress > Settings > Application Passwords")
     
     st.markdown("---")
     st.markdown("### 📋 How to Use")
     st.markdown("""
-    1. **Generate Content:** Use AI buttons to generate titles, subtitles, and features
-    2. **Customize:** Edit any field in the main form
-    3. **Generate Page:** Click the Generate button
-    4. **Export or Publish:** Download files or push directly to WordPress
+    1. **Enter business description**
+    2. **Click "Generate with AI"** to create all content
+    3. **Edit features** in the main panel
+    4. **View live preview** on the right
+    5. **Export or publish** to WordPress
     """)
 
 # ─────────────────────────────────────────
 # MAIN CONTENT
 # ─────────────────────────────────────────
-st.markdown('<h1 class="main-title">🎨 Divi Landing Page Generator</h1>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">AI-powered landing pages with WordPress integration</p>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-title">🎨 AI Landing Page Generator</h1>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">Create stunning landing pages with AI, live preview, and WordPress integration</p>', unsafe_allow_html=True)
 
 # Initialize session state
 if 'page_title' not in st.session_state:
-    st.session_state.page_title = "Welcome to Our Service"
+    st.session_state.page_title = ""
 if 'page_subtitle' not in st.session_state:
-    st.session_state.page_subtitle = "Create amazing landing pages with ease"
+    st.session_state.page_subtitle = ""
 if 'hero_text' not in st.session_state:
-    st.session_state.hero_text = "Discover the power of professional landing pages. Our tool helps you create stunning, conversion-focused pages in minutes."
-if 'features_text' not in st.session_state:
-    st.session_state.features_text = "✓ Fast & Responsive Design\n✓ SEO Optimized\n✓ Easy to Customize\n✓ Mobile Friendly\n✓ Built-in Analytics"
-if 'ai_topic' not in st.session_state:
-    st.session_state.ai_topic = "general"
+    st.session_state.hero_text = ""
+if 'features' not in st.session_state:
+    st.session_state.features = []
+if 'cta_text' not in st.session_state:
+    st.session_state.cta_text = ""
+if 'cta_url' not in st.session_state:
+    st.session_state.cta_url = ""
+if 'brand_color' not in st.session_state:
+    st.session_state.brand_color = "#c9a96e"
+if 'bg_color' not in st.session_state:
+    st.session_state.bg_color = "#0f1117"
+if 'text_color' not in st.session_state:
+    st.session_state.text_color = "#f0ede8"
 
-# Create two columns for input and preview
-col1, col2 = st.columns([1, 1])
+# Business Description Input
+st.markdown('<p class="section-label">📝 Business Description</p>', unsafe_allow_html=True)
 
-with col1:
-    st.markdown('<p class="section-label">📝 Page Content</p>', unsafe_allow_html=True)
+business_description = st.text_area(
+    "Describe your business or service",
+    placeholder="E.g., A SaaS tool for project management that helps teams collaborate better...",
+    height=100,
+    help="Provide details about your business, target audience, and unique value proposition"
+)
+
+# Generate with AI Button
+col_gen, col_space = st.columns([1, 3])
+
+with col_gen:
+    if st.button("🤖 Generate with AI", use_container_width=True):
+        if not business_description.strip():
+            st.error("❌ Please enter a business description first.")
+        elif not openai_api_key:
+            st.error("❌ Please add your OpenAI API key in the sidebar.")
+        else:
+            with st.spinner("🤖 Generating landing page content..."):
+                content = generate_landing_page_content(business_description, openai_api_key, ai_model)
+                
+                if content:
+                    st.session_state.page_title = content.get('title', '')
+                    st.session_state.page_subtitle = content.get('subtitle', '')
+                    st.session_state.hero_text = content.get('hero_text', '')
+                    st.session_state.features = content.get('features', [])
+                    st.session_state.cta_text = content.get('cta_text', 'Get Started')
+                    st.session_state.cta_url = "https://example.com/signup"
+                    st.success("✅ Content generated successfully!")
+                    st.rerun()
+
+st.markdown("---")
+
+# Main Content Area with Live Preview
+col_edit, col_preview = st.columns([1, 1])
+
+with col_edit:
+    st.markdown('<p class="section-label">✏️ Edit Content</p>', unsafe_allow_html=True)
     
-    st.session_state.ai_topic = st.text_input(
-        "Business Topic (for AI generation)",
-        value=st.session_state.ai_topic,
-        help="Describe your business type for better AI-generated content"
-    )
-    
-    page_title = st.text_input(
+    st.session_state.page_title = st.text_input(
         "Page Title",
         value=st.session_state.page_title,
-        help="Main heading of your landing page"
+        key="title_input"
     )
     
-    page_subtitle = st.text_input(
+    st.session_state.page_subtitle = st.text_input(
         "Page Subtitle",
         value=st.session_state.page_subtitle,
-        help="Secondary heading below the main title"
+        key="subtitle_input"
     )
     
-    hero_text = st.text_area(
+    st.session_state.hero_text = st.text_area(
         "Hero Section Text",
         value=st.session_state.hero_text,
-        height=100,
-        help="Main body text for the hero section"
-    )
-    
-    cta_text = st.text_input(
-        "CTA Button Text",
-        value="Get Started Now",
-        help="Text displayed on the call-to-action button"
-    )
-    
-    cta_url = st.text_input(
-        "CTA Button URL",
-        value="https://example.com/signup",
-        help="Where the button should link to"
-    )
-    
-    st.markdown('<p class="section-label">✨ Features</p>', unsafe_allow_html=True)
-    
-    features_text = st.text_area(
-        "Features (one per line)",
-        value=st.session_state.features_text,
         height=120,
-        help="List your key features, one per line"
+        key="hero_input"
     )
     
-    features = [f.strip() for f in features_text.split('\n') if f.strip()]
-
-with col2:
+    st.session_state.cta_text = st.text_input(
+        "CTA Button Text",
+        value=st.session_state.cta_text,
+        key="cta_text_input"
+    )
+    
+    st.session_state.cta_url = st.text_input(
+        "CTA Button URL",
+        value=st.session_state.cta_url,
+        key="cta_url_input"
+    )
+    
+    st.markdown('<p class="section-label">✨ Features (Edit & Add)</p>', unsafe_allow_html=True)
+    
+    # Display and edit features
+    for i, feature in enumerate(st.session_state.features):
+        col_feat, col_del = st.columns([10, 1])
+        
+        with col_feat:
+            st.session_state.features[i] = st.text_input(
+                f"Feature {i+1}",
+                value=feature,
+                key=f"feature_{i}",
+                label_visibility="collapsed"
+            )
+        
+        with col_del:
+            if st.button("🗑️", key=f"del_{i}", help="Delete feature"):
+                st.session_state.features.pop(i)
+                st.rerun()
+    
+    # Add new feature button
+    if st.button("➕ Add Feature", use_container_width=True):
+        st.session_state.features.append("")
+        st.rerun()
+    
+    st.markdown("---")
     st.markdown('<p class="section-label">🎨 Colors</p>', unsafe_allow_html=True)
     
     col_brand, col_bg, col_text = st.columns(3)
     
     with col_brand:
-        brand_color = st.color_picker(
+        st.session_state.brand_color = st.color_picker(
             "Brand Color",
-            value="#c9a96e",
-            help="Primary brand color"
+            value=st.session_state.brand_color,
+            key="brand_color_picker"
         )
     
     with col_bg:
-        bg_color = st.color_picker(
+        st.session_state.bg_color = st.color_picker(
             "Background Color",
-            value="#0f1117",
-            help="Page background color"
+            value=st.session_state.bg_color,
+            key="bg_color_picker"
         )
     
     with col_text:
-        text_color = st.color_picker(
+        st.session_state.text_color = st.color_picker(
             "Text Color",
-            value="#f0ede8",
-            help="Main text color"
+            value=st.session_state.text_color,
+            key="text_color_picker"
         )
+
+with col_preview:
+    st.markdown('<p class="section-label">👁️ Live Preview</p>', unsafe_allow_html=True)
     
-    st.markdown('<p class="section-label">📊 Preview</p>', unsafe_allow_html=True)
-    
-    preview_data = {
-        "Title": page_title,
-        "Subtitle": page_subtitle,
-        "CTA Button": cta_text,
-        "CTA URL": cta_url,
-        "Features": len(features),
-        "Brand Color": brand_color,
-        "Background Color": bg_color,
-        "Text Color": text_color
-    }
-    
-    for key, value in preview_data.items():
-        st.markdown(f"**{key}:** `{value}`")
+    # Generate HTML for preview
+    if st.session_state.page_title:
+        html_content = generate_html(
+            st.session_state.page_title,
+            st.session_state.page_subtitle,
+            st.session_state.hero_text,
+            st.session_state.cta_text,
+            st.session_state.cta_url,
+            st.session_state.features,
+            st.session_state.brand_color,
+            st.session_state.bg_color,
+            st.session_state.text_color
+        )
+        
+        # Display preview in iframe
+        st.components.v1.html(html_content, height=700, scrolling=True)
+    else:
+        st.info("👈 Fill in the content on the left to see a live preview here")
 
 # ─────────────────────────────────────────
-# VALIDATION
-# ─────────────────────────────────────────
-def validate_inputs():
-    errors = []
-    if not page_title.strip():
-        errors.append("Page Title is required.")
-    if not page_subtitle.strip():
-        errors.append("Page Subtitle is required.")
-    if not hero_text.strip():
-        errors.append("Hero Section Text is required.")
-    if not cta_text.strip():
-        errors.append("CTA Button Text is required.")
-    if not cta_url.strip():
-        errors.append("CTA Button URL is required.")
-    if len(hero_text.strip()) < 20:
-        errors.append("Hero text should be at least 20 characters.")
-    return errors
-
-# ─────────────────────────────────────────
-# GENERATE & PUBLISH BUTTONS
+# EXPORT & PUBLISH SECTION
 # ─────────────────────────────────────────
 st.markdown("---")
+st.markdown('<p class="section-label">📦 Export & Publish</p>', unsafe_allow_html=True)
 
-col_generate, col_publish, col_reset = st.columns(3)
+col_export1, col_export2, col_export3, col_export4 = st.columns(4)
 
-with col_generate:
-    generate_btn = st.button("🚀 Generate Landing Page", use_container_width=True)
-
-with col_publish:
-    publish_btn = st.button("📤 Publish to WordPress", use_container_width=True)
-
-with col_reset:
-    reset_btn = st.button("🔄 Reset Form", use_container_width=True)
-
-if reset_btn:
-    st.session_state.page_title = "Welcome to Our Service"
-    st.session_state.page_subtitle = "Create amazing landing pages with ease"
-    st.session_state.hero_text = "Discover the power of professional landing pages. Our tool helps you create stunning, conversion-focused pages in minutes."
-    st.session_state.features_text = "✓ Fast & Responsive Design\n✓ SEO Optimized\n✓ Easy to Customize\n✓ Mobile Friendly\n✓ Built-in Analytics"
-    st.rerun()
-
-if generate_btn:
-    errors = validate_inputs()
+if st.session_state.page_title:
+    # Generate all outputs
+    shortcodes = generate_divi_shortcodes(
+        st.session_state.page_title,
+        st.session_state.page_subtitle,
+        st.session_state.hero_text,
+        st.session_state.cta_text,
+        st.session_state.cta_url,
+        st.session_state.features,
+        st.session_state.brand_color
+    )
     
-    if errors:
-        st.markdown('<div class="validation-error">', unsafe_allow_html=True)
-        for error in errors:
-            st.error(error)
-        st.markdown('</div>', unsafe_allow_html=True)
-    else:
-        st.success("✓ Landing page generated successfully!")
-        
-        # Generate outputs
-        shortcodes = generate_divi_shortcodes(page_title, page_subtitle, hero_text, cta_text, cta_url, features, brand_color)
-        html = generate_html(page_title, page_subtitle, hero_text, cta_text, cta_url, features, brand_color, bg_color, text_color)
-        css = generate_css(brand_color, bg_color, text_color)
-        
-        # Store in session for publishing
-        st.session_state.generated_html = html
-        st.session_state.generated_shortcodes = shortcodes
-        st.session_state.generated_css = css
-        st.session_state.page_title_final = page_title
-        
-        # Create tabs for output
-        st.markdown("---")
-        st.markdown('<p class="section-label">📦 Generated Output</p>', unsafe_allow_html=True)
-        
-        tab1, tab2, tab3 = st.tabs(["📄 HTML Output", "🔗 WordPress Shortcodes", "🎨 Inline CSS"])
-        
-        with tab1:
-            st.markdown("**Complete HTML file with inline CSS:**")
-            st.code(html, language="html")
-            
-            st.download_button(
-                label="📥 Download HTML File",
-                data=html,
-                file_name=f"landing-page-{datetime.now().strftime('%Y%m%d-%H%M%S')}.html",
-                mime="text/html",
-                use_container_width=True
-            )
-        
-        with tab2:
-            st.markdown("**Divi-compatible WordPress shortcodes:**")
-            st.markdown("Copy these shortcodes and paste them into your Divi page builder.")
-            st.code(shortcodes, language="text")
-            
-            st.download_button(
-                label="📥 Download Shortcodes File",
-                data=shortcodes,
-                file_name=f"divi-shortcodes-{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt",
-                mime="text/plain",
-                use_container_width=True
-            )
-        
-        with tab3:
-            st.markdown("**Standalone CSS file:**")
-            st.markdown("Use this CSS with your HTML or customize it for your needs.")
-            st.code(css, language="css")
-            
-            st.download_button(
-                label="📥 Download CSS File",
-                data=css,
-                file_name=f"styles-{datetime.now().strftime('%Y%m%d-%H%M%S')}.css",
-                mime="text/css",
-                use_container_width=True
-            )
-
-if publish_btn:
-    if 'generated_shortcodes' not in st.session_state:
-        st.error("❌ Please generate a landing page first before publishing.")
-    else:
-        # Generate content for WordPress
-        page_content = f"""<h1>{page_title}</h1>
-<h2>{page_subtitle}</h2>
-<p>{hero_text}</p>
-<p><a href="{cta_url}" class="button">{cta_text}</a></p>"""
-        
-        success = publish_to_wordpress(
-            wp_url,
-            wp_username,
-            wp_password,
-            page_title,
-            page_content,
-            st.session_state.generated_shortcodes
+    html = generate_html(
+        st.session_state.page_title,
+        st.session_state.page_subtitle,
+        st.session_state.hero_text,
+        st.session_state.cta_text,
+        st.session_state.cta_url,
+        st.session_state.features,
+        st.session_state.brand_color,
+        st.session_state.bg_color,
+        st.session_state.text_color
+    )
+    
+    css = generate_css(st.session_state.brand_color, st.session_state.bg_color, st.session_state.text_color)
+    
+    with col_export1:
+        st.download_button(
+            label="📥 HTML",
+            data=html,
+            file_name=f"landing-page-{datetime.now().strftime('%Y%m%d-%H%M%S')}.html",
+            mime="text/html",
+            use_container_width=True
         )
+    
+    with col_export2:
+        st.download_button(
+            label="📥 Shortcodes",
+            data=shortcodes,
+            file_name=f"shortcodes-{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+    
+    with col_export3:
+        st.download_button(
+            label="📥 CSS",
+            data=css,
+            file_name=f"styles-{datetime.now().strftime('%Y%m%d-%H%M%S')}.css",
+            mime="text/css",
+            use_container_width=True
+        )
+    
+    with col_export4:
+        if st.button("📤 Publish to WP", use_container_width=True):
+            page_content = f"""<h1>{st.session_state.page_title}</h1>
+<h2>{st.session_state.page_subtitle}</h2>
+<p>{st.session_state.hero_text}</p>
+<p><a href="{st.session_state.cta_url}" class="button">{st.session_state.cta_text}</a></p>"""
+            
+            publish_to_wordpress(
+                wp_url,
+                wp_username,
+                wp_password,
+                st.session_state.page_title,
+                page_content,
+                shortcodes
+            )
+    
+    # Show code tabs
+    st.markdown("---")
+    st.markdown('<p class="section-label">💻 Code</p>', unsafe_allow_html=True)
+    
+    tab1, tab2, tab3 = st.tabs(["📄 HTML", "🔗 Shortcodes", "🎨 CSS"])
+    
+    with tab1:
+        st.code(html, language="html")
+    
+    with tab2:
+        st.code(shortcodes, language="text")
+    
+    with tab3:
+        st.code(css, language="css")
+
+else:
+    st.info("👈 Generate content with AI or fill in the details to export")
 
 st.markdown("---")
 st.markdown("""
 <div class="info-card">
     <strong>💡 Pro Tips:</strong>
     <ul>
-        <li>Use AI buttons in the sidebar to generate compelling content</li>
-        <li>Use the HTML output for standalone landing pages</li>
-        <li>Use the shortcodes in Divi for WordPress integration</li>
+        <li>Use AI generation for faster content creation</li>
+        <li>Edit features directly in the list</li>
+        <li>Watch the live preview update as you type</li>
+        <li>Download HTML for standalone pages</li>
+        <li>Use shortcodes in Divi for WordPress</li>
         <li>Publish directly to WordPress with one click</li>
-        <li>Customize the CSS to match your brand guidelines</li>
-        <li>Test on mobile devices before publishing</li>
     </ul>
 </div>
 """, unsafe_allow_html=True)
