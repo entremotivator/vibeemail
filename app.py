@@ -3,6 +3,7 @@ from openai import OpenAI
 import os
 from datetime import date
 from io import BytesIO
+import re
 
 # PDF Imports (Required Library Usage)
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -21,7 +22,7 @@ st.set_page_config(
 )
 
 st.title("💳 AI Credit Repair Letter System")
-st.markdown("Generate legally structured credit repair letters with professional HTML + PDF export.")
+st.markdown("Generate legally structured credit repair letters with professional HTML + properly formatted PDF export.")
 
 # -----------------------------
 # SIDEBAR SETTINGS
@@ -175,42 +176,107 @@ Sincerely,<br><br>
 """
 
 # -----------------------------
-# PDF GENERATOR (IN MEMORY)
+# PROFESSIONAL PDF GENERATOR
 # -----------------------------
-def generate_pdf_buffer(text_content):
+def generate_pdf_buffer(
+    full_name,
+    address,
+    city_state_zip,
+    today_date,
+    company_name,
+    company_address,
+    letter_type,
+    body_html,
+    account_name,
+    account_number,
+    ssn_last4,
+    dob
+):
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=LETTER)
-    styles = getSampleStyleSheet()
-    story = []
 
-    custom_style = ParagraphStyle(
-        name="Custom",
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=LETTER,
+        rightMargin=72,
+        leftMargin=72,
+        topMargin=72,
+        bottomMargin=72
+    )
+
+    styles = getSampleStyleSheet()
+
+    normal_style = ParagraphStyle(
+        name="LetterNormal",
         parent=styles["Normal"],
         fontSize=12,
         leading=18,
-        spaceAfter=12
+        spaceAfter=10
     )
 
-    for line in text_content.split("\n"):
-        story.append(Paragraph(line, custom_style))
-        story.append(Spacer(1, 0.15 * inch))
+    bold_style = ParagraphStyle(
+        name="LetterBold",
+        parent=styles["Normal"],
+        fontSize=12,
+        leading=18,
+        spaceAfter=14
+    )
+
+    story = []
+
+    # Sender
+    story.append(Paragraph(full_name, normal_style))
+    story.append(Paragraph(address, normal_style))
+    story.append(Paragraph(city_state_zip, normal_style))
+    story.append(Spacer(1, 0.3 * inch))
+
+    # Date
+    story.append(Paragraph(today_date, normal_style))
+    story.append(Spacer(1, 0.3 * inch))
+
+    # Company
+    story.append(Paragraph(company_name, normal_style))
+    story.append(Paragraph(company_address, normal_style))
+    story.append(Spacer(1, 0.3 * inch))
+
+    # RE line
+    story.append(Paragraph(f"<b>Re: {letter_type}</b>", bold_style))
+    story.append(Spacer(1, 0.2 * inch))
+
+    # Convert HTML paragraphs properly
+    paragraphs = re.findall(r"<p>(.*?)</p>", body_html, re.DOTALL)
+
+    for p in paragraphs:
+        story.append(Paragraph(p.strip(), normal_style))
+        story.append(Spacer(1, 0.2 * inch))
+
+    story.append(Spacer(1, 0.3 * inch))
+
+    # Account info
+    story.append(Paragraph(f"Account Name: {account_name}", normal_style))
+    story.append(Paragraph(f"Account Number: XXXX-{account_number}", normal_style))
+    story.append(Paragraph(f"SSN (Last 4): {ssn_last4}", normal_style))
+    story.append(Paragraph(f"Date of Birth: {dob}", normal_style))
+
+    story.append(Spacer(1, 0.5 * inch))
+
+    # Signature
+    story.append(Paragraph("Sincerely,", normal_style))
+    story.append(Spacer(1, 0.7 * inch))
+    story.append(Paragraph(full_name, normal_style))
 
     doc.build(story)
     buffer.seek(0)
     return buffer
 
 # -----------------------------
-# GENERATE BUTTON
+# GENERATE LETTER
 # -----------------------------
 if st.button("🚀 Generate Letter"):
 
     try:
         with st.spinner("Generating legally structured letter..."):
 
-            if api_key:
-                client = OpenAI(api_key=api_key)
-            else:
-                client = OpenAI()
+            client = OpenAI(api_key=api_key) if api_key else OpenAI()
 
             response = client.chat.completions.create(
                 model=model_name,
@@ -222,7 +288,6 @@ if st.button("🚀 Generate Letter"):
 
             body_content = response.choices[0].message.content
 
-            # Final HTML
             final_html = HTML_TEMPLATE.format(
                 full_name=full_name,
                 address=address,
@@ -254,37 +319,24 @@ if st.button("🚀 Generate Letter"):
                     mime="text/html"
                 )
 
-            # -----------------------------
-            # CLEAN TEXT FOR PDF
-            # -----------------------------
-            clean_text = f"""
-{full_name}
-{address}
-{city_state_zip}
-
-{today_date}
-
-{company_name}
-{company_address}
-
-Re: {letter_type}
-
-{dispute_reason}
-
-Account Name: {account_name}
-Account Number: XXXX-{account_number}
-SSN (Last 4): {ssn_last4}
-DOB: {dob}
-
-Sincerely,
-
-{full_name}
-"""
-
-            pdf_buffer = generate_pdf_buffer(clean_text)
+            # Generate Proper PDF
+            pdf_buffer = generate_pdf_buffer(
+                full_name,
+                address,
+                city_state_zip,
+                today_date,
+                company_name,
+                company_address,
+                letter_type,
+                body_content,
+                account_name,
+                account_number,
+                ssn_last4,
+                dob
+            )
 
             st.download_button(
-                "📄 Download PDF",
+                "📄 Download Professional PDF",
                 pdf_buffer,
                 file_name="credit_letter.pdf",
                 mime="application/pdf"
