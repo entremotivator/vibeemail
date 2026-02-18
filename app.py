@@ -880,7 +880,12 @@ with col_gen:
                     st.session_state.features = content.get('features', [])
                     st.session_state.cta_text = content.get('cta_text', 'Get Started')
                     st.session_state.cta_url = "https://example.com/signup"
+                    
+                    # Show success message
                     st.success("✅ Content generated successfully!")
+                    
+                    # Force immediate rerun to show live preview
+                    time.sleep(0.5)
                     st.rerun()
 
 st.markdown("---")
@@ -972,23 +977,26 @@ with col_edit:
             key="text_color_picker"
         )
 
+# Generate HTML for preview (outside columns so it updates immediately)
+if st.session_state.page_title:
+    html_content = generate_html(
+        st.session_state.page_title,
+        st.session_state.page_subtitle,
+        st.session_state.hero_text,
+        st.session_state.cta_text,
+        st.session_state.cta_url,
+        st.session_state.features,
+        st.session_state.brand_color,
+        st.session_state.bg_color,
+        st.session_state.text_color
+    )
+else:
+    html_content = None
+
 with col_preview:
     st.markdown('<p class="section-label">👁️ Live Preview</p>', unsafe_allow_html=True)
     
-    # Generate HTML for preview
-    if st.session_state.page_title:
-        html_content = generate_html(
-            st.session_state.page_title,
-            st.session_state.page_subtitle,
-            st.session_state.hero_text,
-            st.session_state.cta_text,
-            st.session_state.cta_url,
-            st.session_state.features,
-            st.session_state.brand_color,
-            st.session_state.bg_color,
-            st.session_state.text_color
-        )
-        
+    if html_content:
         # Display preview in iframe
         st.components.v1.html(html_content, height=700, scrolling=True)
     else:
