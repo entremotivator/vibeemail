@@ -5,7 +5,6 @@ from datetime import datetime
 from io import BytesIO
 import base64
 import requests
-from openai import OpenAI
 import time
 
 # ─────────────────────────────────────────
@@ -254,9 +253,10 @@ def generate_with_llm(prompt, api_key, model="gpt-4o-mini", max_tokens=2000):
         return None
     
     try:
-        client = OpenAI(api_key=api_key)
+        import openai
+        openai.api_key = api_key
         
-        response = client.messages.create(
+        response = openai.ChatCompletion.create(
             model=model,
             messages=[
                 {"role": "user", "content": prompt}
@@ -265,7 +265,7 @@ def generate_with_llm(prompt, api_key, model="gpt-4o-mini", max_tokens=2000):
             max_tokens=max_tokens
         )
         
-        return response.content[0].text
+        return response.choices[0].message.content
     
     except Exception as e:
         st.error(f"❌ OpenAI API Error: {str(e)}")
@@ -1111,3 +1111,4 @@ st.markdown("""
     </ul>
 </div>
 """, unsafe_allow_html=True)
+
