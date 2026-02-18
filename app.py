@@ -2,52 +2,55 @@ import streamlit as st
 from openai import OpenAI
 import os
 from datetime import date
+from io import BytesIO
+
+# PDF Imports (Required Library Usage)
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib import colors
 from reportlab.lib.units import inch
 from reportlab.lib.pagesizes import LETTER
-from reportlab.lib.enums import TA_LEFT
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.pdfbase import pdfmetrics
-from reportlab.platypus import FrameBreak
-from reportlab.platypus import PageBreak
-from reportlab.platypus import KeepTogether
-from reportlab.platypus import ListFlowable, ListItem
-from reportlab.platypus import Preformatted
-from reportlab.platypus import HRFlowable
-from reportlab.platypus import Image
-from reportlab.platypus import Table
-from reportlab.platypus import TableStyle
-from reportlab.platypus import Spacer
-from reportlab.platypus import PageTemplate
-from reportlab.platypus import BaseDocTemplate
-from reportlab.platypus import Frame
-from reportlab.platypus import NextPageTemplate
-from reportlab.platypus import CondPageBreak
-from reportlab.platypus import Flowable
-from reportlab.platypus import PageBreak
+from reportlab.lib import colors
 
-# Page setup
-st.set_page_config(page_title="AI Credit Repair OS", page_icon="💳", layout="wide")
+# -----------------------------
+# PAGE CONFIG
+# -----------------------------
+st.set_page_config(
+    page_title="AI Credit Repair Letter System",
+    page_icon="💳",
+    layout="wide"
+)
 
 st.title("💳 AI Credit Repair Letter System")
-st.markdown("Generate legally structured credit repair letters with HTML + PDF export.")
+st.markdown("Generate legally structured credit repair letters with professional HTML + PDF export.")
 
-# Sidebar API
+# -----------------------------
+# SIDEBAR SETTINGS
+# -----------------------------
 st.sidebar.title("⚙️ AI Settings")
-api_key = st.sidebar.text_input("OpenAI API Key (Optional)", type="password", value=os.getenv("OPENAI_API_KEY", ""))
-model_name = st.sidebar.selectbox("Model", ["gpt-4.1-mini", "gpt-4.1-nano"], index=0)
 
-# Letter Type Selector
+api_key = st.sidebar.text_input(
+    "OpenAI API Key (Optional)",
+    type="password",
+    value=os.getenv("OPENAI_API_KEY", "")
+)
+
+model_name = st.sidebar.selectbox(
+    "Model",
+    ["gpt-4.1-mini", "gpt-4.1-nano"],
+    index=0
+)
+
+# -----------------------------
+# LETTER TYPE
+# -----------------------------
 letter_type = st.selectbox(
     "Select Letter Type",
     [
         "Credit Bureau Dispute (FCRA 611)",
-        "609 Method of Verification Letter",
+        "609 Method of Verification",
         "Debt Validation Letter (FDCPA)",
         "Goodwill Deletion Request",
-        "Late Payment Removal Request",
+        "Late Payment Removal",
         "Hard Inquiry Removal",
         "Charge-Off Dispute",
         "Identity Theft Dispute"
@@ -56,6 +59,9 @@ letter_type = st.selectbox(
 
 st.markdown("---")
 
+# -----------------------------
+# USER INPUT
+# -----------------------------
 col1, col2 = st.columns(2)
 
 with col1:
@@ -68,29 +74,34 @@ with col1:
 with col2:
     company_name = st.text_input("Bureau / Creditor Name")
     company_address = st.text_area("Bureau / Creditor Address")
-    account_name = st.text_input("Creditor / Furnisher Name")
+    account_name = st.text_input("Account / Creditor Name")
     account_number = st.text_input("Account Number (Last 4 Only)")
-    dispute_reason = st.text_area("Describe Issue")
+    dispute_reason = st.text_area("Describe the Issue in Detail")
 
 today_date = date.today().strftime("%B %d, %Y")
 
-# Dynamic Prompt Builder
+# -----------------------------
+# AI PROMPT BUILDER
+# -----------------------------
 def build_prompt():
-    base = f"""
+    return f"""
 Write a formal {letter_type}.
 
-Issue: {dispute_reason}
-Account: {account_name}
+Issue:
+{dispute_reason}
+
+Account Name: {account_name}
 Account Last 4: {account_number}
 
-Use proper legal structure.
+Use professional legal structure.
 Reference FCRA or FDCPA where appropriate.
-Be firm, professional, and legally structured.
+Be firm but not aggressive.
 Return only HTML paragraph tags.
 """
-    return base
 
+# -----------------------------
 # HTML TEMPLATE
+# -----------------------------
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
@@ -113,10 +124,14 @@ body {{
 .section {{
     margin-bottom: 18px;
     font-size: 16px;
-    line-height: 1.6;
+    line-height: 1.7;
 }}
 .header {{
     margin-bottom: 30px;
+}}
+.re-line {{
+    font-weight: bold;
+    font-size: 18px;
 }}
 </style>
 </head>
@@ -134,8 +149,8 @@ body {{
 {company_address}</p>
 </div>
 
-<div class="section">
-<strong>Re: {letter_type}</strong>
+<div class="section re-line">
+Re: {letter_type}
 </div>
 
 <div class="section">
@@ -159,28 +174,39 @@ Sincerely,<br><br>
 </html>
 """
 
-# PDF Generator
-def generate_pdf(text_content, filename):
-    doc = SimpleDocTemplate(filename, pagesize=LETTER)
+# -----------------------------
+# PDF GENERATOR (IN MEMORY)
+# -----------------------------
+def generate_pdf_buffer(text_content):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=LETTER)
     styles = getSampleStyleSheet()
     story = []
 
-    style = styles["Normal"]
-    style.fontSize = 12
-    style.leading = 18
+    custom_style = ParagraphStyle(
+        name="Custom",
+        parent=styles["Normal"],
+        fontSize=12,
+        leading=18,
+        spaceAfter=12
+    )
 
-    paragraphs = text_content.split("\n")
-
-    for p in paragraphs:
-        story.append(Paragraph(p, style))
-        story.append(Spacer(1, 0.2 * inch))
+    for line in text_content.split("\n"):
+        story.append(Paragraph(line, custom_style))
+        story.append(Spacer(1, 0.15 * inch))
 
     doc.build(story)
+    buffer.seek(0)
+    return buffer
 
-# Generate Button
+# -----------------------------
+# GENERATE BUTTON
+# -----------------------------
 if st.button("🚀 Generate Letter"):
+
     try:
         with st.spinner("Generating legally structured letter..."):
+
             if api_key:
                 client = OpenAI(api_key=api_key)
             else:
@@ -196,6 +222,7 @@ if st.button("🚀 Generate Letter"):
 
             body_content = response.choices[0].message.content
 
+            # Final HTML
             final_html = HTML_TEMPLATE.format(
                 full_name=full_name,
                 address=address,
@@ -220,11 +247,16 @@ if st.button("🚀 Generate Letter"):
 
             with tab2:
                 st.code(final_html, language="html")
-                st.download_button("Download HTML", final_html,
-                                   file_name="credit_letter.html",
-                                   mime="text/html")
+                st.download_button(
+                    "Download HTML",
+                    final_html,
+                    file_name="credit_letter.html",
+                    mime="text/html"
+                )
 
-            # Clean text for PDF
+            # -----------------------------
+            # CLEAN TEXT FOR PDF
+            # -----------------------------
             clean_text = f"""
 {full_name}
 {address}
@@ -245,15 +277,15 @@ SSN (Last 4): {ssn_last4}
 DOB: {dob}
 
 Sincerely,
+
 {full_name}
 """
 
-            pdf_path = "/mnt/data/credit_letter.pdf"
-            generate_pdf(clean_text, pdf_path)
+            pdf_buffer = generate_pdf_buffer(clean_text)
 
             st.download_button(
                 "📄 Download PDF",
-                open(pdf_path, "rb"),
+                pdf_buffer,
                 file_name="credit_letter.pdf",
                 mime="application/pdf"
             )
