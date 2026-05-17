@@ -219,50 +219,81 @@ with tab_cam:
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap" rel="stylesheet">
 <style>
   * {{ margin:0; padding:0; box-sizing:border-box; }}
-  body {{ background:#062918; font-family:'Cinzel',serif; padding:6px 4px; }}
 
+  html, body {{
+    background: #062918;
+    font-family: 'Cinzel', serif;
+    height: 100%;
+    overflow-x: hidden;
+  }}
+
+  /* Full layout: canvas takes all space, button bar fixed at bottom */
   #wrap {{
     position: relative;
     width: 100%;
-    max-width: 480px;
-    margin: 0 auto;
+    padding-bottom: 90px; /* room for button bar */
   }}
 
-  /* Live composite canvas — video + frame drawn here every frame */
-  #liveCanvas {{
+  /* Canvases fill the width, natural aspect ratio */
+  #liveCanvas, #snapCanvas {{
     width: 100%;
-    border-radius: 8px;
     display: block;
-    box-shadow: 0 8px 40px rgba(0,0,0,.6);
+    border-radius: 6px;
+    box-shadow: 0 6px 32px rgba(0,0,0,.7);
+  }}
+  #snapCanvas {{ display: none; }}
+
+  /* ── BIG capture button – fixed at bottom of iframe ── */
+  #btnBar {{
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    padding: 10px 12px 14px;
+    background: linear-gradient(to top, #062918 70%, transparent);
+    display: flex;
+    gap: 10px;
+    z-index: 99;
   }}
 
-  /* Captured still — shown after snap */
-  #snapCanvas {{
-    width: 100%;
-    border-radius: 8px;
-    display: none;
-    box-shadow: 0 8px 40px rgba(0,0,0,.6);
-  }}
-
-  .row {{ display:flex; gap:8px; margin-top:10px; max-width:480px; margin-left:auto; margin-right:auto; }}
   .btn {{
-    flex:1; padding:11px 6px;
-    background: linear-gradient(135deg,#7a5c10,#c9a84c,#7a5c10);
-    color:#062918; border:none; border-radius:3px;
-    font-family:'Cinzel',serif; font-weight:700;
-    font-size:.78rem; letter-spacing:.1em;
-    text-transform:uppercase; cursor:pointer;
-    box-shadow:0 4px 18px rgba(201,168,76,.3);
-    transition: box-shadow .2s, opacity .15s;
+    flex: 1;
+    padding: 15px 8px;
+    border: none;
+    border-radius: 6px;
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    font-size: .88rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity .15s, box-shadow .2s;
+    -webkit-tap-highlight-color: transparent;
   }}
-  .btn:active {{ opacity:.75; }}
-  .btn:hover  {{ box-shadow:0 8px 30px rgba(201,168,76,.55); }}
-  .btn.sec    {{ background:transparent; border:1px solid rgba(201,168,76,.45); color:rgba(201,168,76,.8); box-shadow:none; }}
+  .btn:active {{ opacity: .7; }}
+
+  #snapBtn {{
+    background: linear-gradient(135deg, #7a5c10, #e8c05a, #7a5c10);
+    color: #062918;
+    box-shadow: 0 4px 24px rgba(201,168,76,.55);
+    font-size: 1rem;
+    flex: 2;  /* wider than flip */
+  }}
+  #snapBtn:hover {{ box-shadow: 0 8px 36px rgba(201,168,76,.8); }}
+
+  .btn.sec {{
+    background: rgba(201,168,76,.12);
+    border: 1px solid rgba(201,168,76,.4);
+    color: rgba(201,168,76,.85);
+    box-shadow: none;
+    flex: 1;
+  }}
 
   #status {{
-    text-align:center; color:rgba(201,168,76,.55);
-    font-size:.68rem; letter-spacing:.1em;
-    margin-top:7px; min-height:1em;
+    text-align: center;
+    color: rgba(201,168,76,.5);
+    font-size: .65rem;
+    letter-spacing: .1em;
+    padding: 5px 8px 0;
+    min-height: 1.2em;
   }}
 </style>
 </head>
@@ -271,17 +302,18 @@ with tab_cam:
 <div id="wrap">
   <canvas id="liveCanvas"></canvas>
   <canvas id="snapCanvas"></canvas>
+  <div id="status">Starting rear camera…</div>
 </div>
 
-<div class="row">
-  <button class="btn" id="snapBtn">📸 &nbsp;Capture</button>
-  <button class="btn sec" id="retakeBtn" style="display:none">🔄 &nbsp;Retake</button>
-  <button class="btn sec" id="flipBtn">🔁 &nbsp;Flip Cam</button>
+<!-- Fixed bottom button bar — always visible no matter iframe height -->
+<div id="btnBar">
+  <button class="btn sec" id="flipBtn">🔁 Flip</button>
+  <button class="btn" id="snapBtn">📸 CAPTURE PHOTO</button>
+  <button class="btn sec" id="retakeBtn" style="display:none">🔄 Retake</button>
 </div>
-<div id="status">Starting rear camera…</div>
 
-<!-- Hidden video element – never shown, just feeds the canvas -->
-<video id="vid" autoplay playsinline muted style="display:none"></video>
+<!-- Hidden video element – feeds the canvas -->
+<video id="vid" autoplay playsinline muted style="display:none;position:absolute;"></video>
 
 <script>
 const liveC   = document.getElementById('liveCanvas');
@@ -407,12 +439,12 @@ snapBtn.addEventListener('click', () => {{
   snapCtx.drawImage(frameImg, 0, 0, FW, FH);
 
   // Show snap, hide live
-  liveC.style.display   = 'none';
-  snapC.style.display   = 'block';
-  snapBtn.style.display = 'none';
+  liveC.style.display     = 'none';
+  snapC.style.display     = 'block';
+  snapBtn.style.display   = 'none';
   retakeBtn.style.display = 'flex';
   flipBtn.style.display   = 'none';
-  status.textContent = '✅ Photo taken! Scroll down to download.';
+  status.textContent = '✅ Captured! Scroll down to download & save.';
 
   // Send base64 JPEG back to Streamlit
   const dataUrl = snapC.toDataURL('image/jpeg', 0.95);
@@ -442,16 +474,13 @@ flipBtn.addEventListener('click', () => {{
 frameImg.onload = () => startCamera('environment');
 if (frameImg.complete) startCamera('environment');
 
-// Auto-height
-function resize() {{ Streamlit.setFrameHeight(document.body.scrollHeight + 10); }}
-window.addEventListener('resize', resize);
-setTimeout(resize, 300);
-setTimeout(resize, 1200);
+// Tell Streamlit how tall the iframe should be
+// We do NOT use setFrameHeight dynamically — just set a fixed tall value via the height param
 </script>
 </body>
 </html>"""
 
-    result = st_html(COMP_HTML, height=700)
+    result = st_html(COMP_HTML, height=900)
 
     if result and isinstance(result, str) and result.startswith("data:image"):
         try:
