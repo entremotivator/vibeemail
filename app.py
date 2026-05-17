@@ -10,7 +10,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ─── Custom CSS ────────────────────────────────────────────────────────────────
+# ─── Custom CSS + rear-camera JS injection ─────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Cormorant+Garamond:ital,wght@1,300&display=swap');
@@ -83,20 +83,75 @@ h1 {
 .stCameraInput video { border: 1px solid rgba(201,168,76,0.3); border-radius: 6px; }
 </style>
 
+<!-- Sparkle background -->
 <div class="sparkle-bg" id="spbg"></div>
+
 <script>
+// ── Sparkles ──────────────────────────────────────────────────────────────────
 (function(){
-    const bg=document.getElementById('spbg');
-    if(!bg)return;
-    const style=document.createElement('style');
-    style.textContent='@keyframes tw{0%,100%{opacity:0;transform:scale(.4)}50%{opacity:.6;transform:scale(1.3)}}';
+    const bg = document.getElementById('spbg');
+    if (!bg) return;
+    const style = document.createElement('style');
+    style.textContent = '@keyframes tw{0%,100%{opacity:0;transform:scale(.4)}50%{opacity:.6;transform:scale(1.3)}}';
     document.head.appendChild(style);
-    for(let i=0;i<70;i++){
-        const s=document.createElement('div');
-        const sz=Math.random()*3+1;
-        s.style.cssText=`position:absolute;border-radius:50%;background:#ffe066;width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;opacity:0;animation:tw ${2+Math.random()*4}s ease-in-out ${-Math.random()*5}s infinite;`;
+    for (let i = 0; i < 70; i++) {
+        const s = document.createElement('div');
+        const sz = Math.random() * 3 + 1;
+        s.style.cssText = `position:absolute;border-radius:50%;background:#ffe066;width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;opacity:0;animation:tw ${2+Math.random()*4}s ease-in-out ${-Math.random()*5}s infinite;`;
         bg.appendChild(s);
     }
+})();
+
+// ── Rear camera injection ─────────────────────────────────────────────────────
+// Streamlit's st.camera_input always requests { video: true } which defaults to
+// the front camera on mobile.  We monkey-patch getUserMedia so that whenever
+// Streamlit asks for plain `{ video: true }`, we upgrade the constraint to
+// request the REAR (environment) camera instead.
+(function patchGetUserMedia() {
+    const _orig = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+
+    navigator.mediaDevices.getUserMedia = function(constraints) {
+        if (constraints && constraints.video) {
+            // Only override when no explicit facingMode is already set
+            const vid = constraints.video;
+            const alreadySet =
+                (typeof vid === 'object' && vid.facingMode) ||
+                (typeof vid === 'object' && vid.advanced &&
+                    vid.advanced.some(a => a.facingMode));
+
+            if (!alreadySet) {
+                constraints = {
+                    ...constraints,
+                    video: {
+                        ...(typeof vid === 'object' ? vid : {}),
+                        facingMode: { ideal: 'environment' }   // rear camera
+                    }
+                };
+            }
+        }
+        return _orig(constraints);
+    };
+
+    // Also patch any already-open video tracks if Streamlit re-uses them
+    // by re-applying after DOM settles
+    function reapply() {
+        document.querySelectorAll('video').forEach(v => {
+            const stream = v.srcObject;
+            if (!stream) return;
+            stream.getVideoTracks().forEach(track => {
+                const settings = track.getSettings();
+                if (settings.facingMode === 'user') {
+                    // Politely ask to switch; ignore errors on desktop
+                    track.applyConstraints({ facingMode: { ideal: 'environment' } })
+                         .catch(() => {});
+                }
+            });
+        });
+    }
+
+    // Run once after page stabilises and again if camera tab is clicked
+    setTimeout(reapply, 2000);
+    document.addEventListener('click', () => setTimeout(reapply, 800), { passive: true });
 })();
 </script>
 """, unsafe_allow_html=True)
@@ -139,7 +194,13 @@ tab_cam, tab_upload = st.tabs(["📷 Take Photo", "🖼 Upload Photo"])
 photo_source = None
 
 with tab_cam:
-    camera_photo = st.camera_input("Take a picture")
+    st.markdown(
+        '<p style="font-family:\'Cinzel\',serif;font-size:0.72rem;'
+        'color:rgba(201,168,76,0.5);letter-spacing:0.08em;">'
+        '📸 REAR CAMERA ACTIVE — point at your subject</p>',
+        unsafe_allow_html=True,
+    )
+    camera_photo = st.camera_input("", label_visibility="collapsed")
     if camera_photo:
         photo_source = Image.open(camera_photo).convert("RGB")
 
