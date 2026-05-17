@@ -1,234 +1,557 @@
 import streamlit as st
-from PIL import Image
+from PIL import Image, ImageOps
 import io, os, base64
 from streamlit.components.v1 import html as st_html
 
-# ─── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="🎉 Elease Benford – 80th Birthday Frame",
+    page_title="🎉 Elease Benford – 80th Birthday",
     layout="centered",
     initial_sidebar_state="collapsed",
 )
 
-# ─── CSS ───────────────────────────────────────────────────────────────────────
+# ── Read frame as base64 so we can pass it into the JS component ───────────────
+FRAME_PATH = os.path.join(os.path.dirname(__file__), "frame.png")
+with open(FRAME_PATH, "rb") as f:
+    FRAME_B64 = base64.b64encode(f.read()).decode()
+
+CUTOUT = dict(top=106, bottom=961, left=269, right=785)   # adjust if frame changes
+
+# ── Page-level CSS ─────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Cormorant+Garamond:ital,wght@1,300&display=swap');
-html, body, [data-testid="stAppViewContainer"] { background: #062918 !important; }
-[data-testid="stAppViewContainer"] > .main { background: #062918; }
-[data-testid="stHeader"] { background: transparent !important; }
-#MainMenu, footer { visibility: hidden; }
-h1 { font-family:'Cinzel',serif !important; font-size:2rem !important; font-weight:900 !important; color:#ffe066 !important; text-align:center; letter-spacing:0.1em; text-shadow:0 0 30px rgba(255,224,102,0.6); margin-bottom:0 !important; }
-.subtitle { font-family:'Cormorant Garamond',serif; font-style:italic; font-size:1.1rem; color:rgba(201,168,76,0.7); text-align:center; letter-spacing:0.06em; margin-bottom:18px; }
-.gold-divider { height:1px; background:linear-gradient(90deg,transparent,#c9a84c,transparent); margin:16px 0; opacity:0.6; }
-.stButton > button { font-family:'Cinzel',serif !important; font-weight:700 !important; letter-spacing:0.08em !important; text-transform:uppercase !important; background:linear-gradient(135deg,#8b6914,#c9a84c,#8b6914) !important; color:#062918 !important; border:none !important; border-radius:4px !important; box-shadow:0 4px 20px rgba(201,168,76,0.35) !important; width:100% !important; }
-.stButton > button:hover { box-shadow:0 8px 32px rgba(201,168,76,0.65) !important; }
-.stFileUploader [data-testid="stFileUploaderDropzone"] { background:#0d3d20 !important; border:1px dashed #c9a84c !important; border-radius:6px !important; }
-.stFileUploader [data-testid="stFileUploaderDropzone"] * { color:#f0d080 !important; }
-.section-label { font-family:'Cinzel',serif; font-size:0.75rem; letter-spacing:0.12em; color:rgba(201,168,76,0.55); text-transform:uppercase; margin-bottom:8px; }
-.sparkle-bg { position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:-1;overflow:hidden; }
-.stTabs [data-baseweb="tab-list"] { background:transparent !important; border-bottom:1px solid rgba(201,168,76,0.3) !important; gap:4px; }
-.stTabs [data-baseweb="tab"] { font-family:'Cinzel',serif !important; font-size:0.78rem !important; letter-spacing:0.1em !important; color:rgba(201,168,76,0.5) !important; background:transparent !important; border:none !important; padding:8px 20px !important; }
-.stTabs [aria-selected="true"] { color:#ffe066 !important; border-bottom:2px solid #c9a84c !important; background:rgba(201,168,76,0.07) !important; }
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Cormorant+Garamond:ital,wght@1,300;0,400&display=swap');
+
+:root {
+  --gold:   #c9a84c;
+  --gold2:  #ffe066;
+  --green:  #062918;
+  --green2: #0d3d20;
+}
+
+html, body,
+[data-testid="stAppViewContainer"],
+[data-testid="stAppViewContainer"] > .main {
+    background: var(--green) !important;
+}
+[data-testid="stHeader"]          { background: transparent !important; }
+[data-testid="stMainBlockContainer"] { padding-top: 1.5rem !important; }
+#MainMenu, footer                 { visibility: hidden; }
+
+/* headings */
+h1 {
+    font-family: 'Cinzel', serif !important;
+    font-size: clamp(1.4rem, 5vw, 2.2rem) !important;
+    font-weight: 900 !important;
+    color: var(--gold2) !important;
+    text-align: center;
+    letter-spacing: .12em;
+    text-shadow: 0 0 40px rgba(255,224,102,.55);
+    margin-bottom: 0 !important;
+    line-height: 1.2 !important;
+}
+h3 {
+    font-family: 'Cinzel', serif !important;
+    font-size: .72rem !important;
+    font-weight: 700 !important;
+    color: rgba(201,168,76,.45) !important;
+    letter-spacing: .18em !important;
+    text-transform: uppercase !important;
+    margin-bottom: 6px !important;
+}
+.subtitle {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(.9rem, 3vw, 1.15rem);
+    color: rgba(201,168,76,.65);
+    text-align: center;
+    letter-spacing: .06em;
+}
+.gold-line {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    opacity: .55;
+    margin: 14px 0;
+}
+.ornament {
+    text-align: center;
+    font-size: 1.1rem;
+    color: rgba(201,168,76,.35);
+    letter-spacing: .5em;
+}
+
+/* Buttons */
+.stButton > button {
+    font-family: 'Cinzel', serif !important;
+    font-weight: 700 !important;
+    letter-spacing: .1em !important;
+    text-transform: uppercase !important;
+    background: linear-gradient(135deg, #7a5c10, var(--gold), #7a5c10) !important;
+    color: var(--green) !important;
+    border: none !important;
+    border-radius: 3px !important;
+    padding: 10px 0 !important;
+    box-shadow: 0 4px 22px rgba(201,168,76,.3) !important;
+    width: 100% !important;
+    transition: box-shadow .2s !important;
+}
+.stButton > button:hover {
+    box-shadow: 0 8px 36px rgba(201,168,76,.6) !important;
+}
+
+/* File uploader */
+.stFileUploader [data-testid="stFileUploaderDropzone"] {
+    background: var(--green2) !important;
+    border: 1px dashed var(--gold) !important;
+    border-radius: 6px !important;
+}
+.stFileUploader [data-testid="stFileUploaderDropzone"] * { color: #f0d080 !important; }
+
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] {
+    background: transparent !important;
+    border-bottom: 1px solid rgba(201,168,76,.25) !important;
+    gap: 2px;
+}
+.stTabs [data-baseweb="tab"] {
+    font-family: 'Cinzel', serif !important;
+    font-size: .76rem !important;
+    letter-spacing: .12em !important;
+    color: rgba(201,168,76,.4) !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 9px 22px !important;
+}
+.stTabs [aria-selected="true"] {
+    color: var(--gold2) !important;
+    border-bottom: 2px solid var(--gold) !important;
+    background: rgba(201,168,76,.06) !important;
+}
+
+/* Sparkle background */
+.spbg { position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:hidden; }
+[data-testid="stAppViewContainer"] { position: relative; z-index: 1; }
 </style>
-<div class="sparkle-bg" id="spbg"></div>
+
+<!-- Sparkle canvas -->
+<div class="spbg" id="spbg"></div>
 <script>
 (function(){
-    const bg=document.getElementById('spbg');if(!bg)return;
-    const s=document.createElement('style');s.textContent='@keyframes tw{0%,100%{opacity:0;transform:scale(.4)}50%{opacity:.6;transform:scale(1.3)}}';document.head.appendChild(s);
-    for(let i=0;i<70;i++){const d=document.createElement('div');const sz=Math.random()*3+1;d.style.cssText=`position:absolute;border-radius:50%;background:#ffe066;width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;opacity:0;animation:tw ${2+Math.random()*4}s ease-in-out ${-Math.random()*5}s infinite;`;bg.appendChild(d);}
+  const bg = document.getElementById('spbg');
+  if (!bg) return;
+  const st = document.createElement('style');
+  st.textContent = '@keyframes tw{0%,100%{opacity:0;transform:scale(.3) rotate(0deg)}50%{opacity:.55;transform:scale(1.4) rotate(180deg)}}';
+  document.head.appendChild(st);
+  for (let i = 0; i < 90; i++) {
+    const d = document.createElement('div');
+    const sz = Math.random() * 3 + 1;
+    d.style.cssText = `position:absolute;border-radius:50%;background:#ffe066;width:${sz}px;height:${sz}px;`
+      + `left:${Math.random()*100}%;top:${Math.random()*100}%;opacity:0;`
+      + `animation:tw ${2.5+Math.random()*4}s ease-in-out ${-Math.random()*6}s infinite;`;
+    bg.appendChild(d);
+  }
 })();
 </script>
 """, unsafe_allow_html=True)
 
-# ─── Load frame ────────────────────────────────────────────────────────────────
-FRAME_PATH = os.path.join(os.path.dirname(__file__), "frame.png")
-frame_pil  = Image.open(FRAME_PATH).convert("RGBA")
-CUTOUT = dict(top=106, bottom=961, left=269, right=785)
-
+# ── Helpers ───────────────────────────────────────────────────────────────────
 def apply_frame(photo: Image.Image) -> Image.Image:
-    cut_w = CUTOUT["right"] - CUTOUT["left"]
+    """Composite photo into frame cutout WITHOUT rotating."""
+    # Fix EXIF orientation so portrait photos stay portrait
+    photo = ImageOps.exif_transpose(photo)
+
+    cut_w = CUTOUT["right"]  - CUTOUT["left"]
     cut_h = CUTOUT["bottom"] - CUTOUT["top"]
     ratio = cut_w / cut_h
     pw, ph = photo.size
+
+    # Centre-crop to match cutout aspect ratio
     if pw / ph > ratio:
         nw = int(ph * ratio)
-        photo = photo.crop(((pw-nw)//2, 0, (pw-nw)//2+nw, ph))
+        photo = photo.crop(((pw - nw) // 2, 0, (pw - nw) // 2 + nw, ph))
     else:
         nh = int(pw / ratio)
-        photo = photo.crop((0, (ph-nh)//2, pw, (ph-nh)//2+nh))
+        photo = photo.crop((0, (ph - nh) // 2, pw, (ph - nh) // 2 + nh))
+
     photo  = photo.resize((cut_w, cut_h), Image.Resampling.LANCZOS).convert("RGBA")
-    canvas = Image.new("RGBA", frame_pil.size, (0,0,0,0))
+    canvas = Image.new("RGBA", frame_pil.size, (0, 0, 0, 0))
     canvas.paste(photo, (CUTOUT["left"], CUTOUT["top"]), photo)
     return Image.alpha_composite(canvas, frame_pil).convert("RGB")
 
-# ─── Session state ─────────────────────────────────────────────────────────────
-if "gallery" not in st.session_state:
-    st.session_state.gallery = []
 
-# ─── Header ───────────────────────────────────────────────────────────────────
-st.markdown("<h1>🎉 80th Birthday Photo Frame</h1>", unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Elease Benford · Celebrating 80 Magnificent Years</div>', unsafe_allow_html=True)
-st.markdown('<div class="gold-divider"></div>', unsafe_allow_html=True)
+def img_to_dl_bytes(img: Image.Image) -> bytes:
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
 
-# ─── Tabs ─────────────────────────────────────────────────────────────────────
-tab_cam, tab_upload = st.tabs(["📷 Take Photo", "🖼 Upload Photo"])
 
-photo_source = None
+# ── Load frame PIL (for upload path) ──────────────────────────────────────────
+frame_pil = Image.open(FRAME_PATH).convert("RGBA")
 
-# ── Camera tab ─────────────────────────────────────────────────────────────────
+# ── Session state ─────────────────────────────────────────────────────────────
+if "gallery"  not in st.session_state: st.session_state.gallery  = []
+if "cam_snap" not in st.session_state: st.session_state.cam_snap = None
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HEADER
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown("<h1>✦ 80th Birthday Frame ✦</h1>", unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Elease Benford &nbsp;·&nbsp; Eighty Magnificent Years</div>',
+            unsafe_allow_html=True)
+st.markdown('<div class="ornament">· · · ✦ · · ·</div>', unsafe_allow_html=True)
+st.markdown('<div class="gold-line"></div>', unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TABS
+# ══════════════════════════════════════════════════════════════════════════════
+tab_cam, tab_upload = st.tabs(["📷  Live Camera", "🖼  Upload Photo"])
+photo_source = None   # PIL Image set by either tab
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TAB 1 – LIVE CAMERA  (frame overlay rendered in real-time on canvas)
+# ─────────────────────────────────────────────────────────────────────────────
 with tab_cam:
-    # This custom HTML component directly calls getUserMedia with facingMode: environment
-    # The captured image is posted back as a base64 data URL via Streamlit's component value
-    camera_html = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap" rel="stylesheet">
-    <style>
-      * { margin:0; padding:0; box-sizing:border-box; }
-      body { background:#062918; padding:4px; }
-      #video { width:100%; border-radius:6px; border:1px solid rgba(201,168,76,0.3); display:block; }
-      #preview { width:100%; border-radius:6px; border:1px solid rgba(201,168,76,0.5); display:none; margin-top:8px; }
-      #canvas { display:none; }
-      .btn {
-        margin-top:8px; width:100%; padding:10px;
-        background:linear-gradient(135deg,#8b6914,#c9a84c,#8b6914);
-        color:#062918; border:none; border-radius:4px;
-        font-family:'Cinzel',serif; font-weight:700; font-size:0.85rem;
-        letter-spacing:0.1em; text-transform:uppercase; cursor:pointer;
-      }
-      .btn:active { opacity:0.8; }
-      #status { color:rgba(201,168,76,0.6); font-size:0.72rem; font-family:'Cinzel',serif;
-                text-align:center; margin-top:6px; letter-spacing:0.08em; }
-      #retake { display:none; }
-    </style>
-    </head>
-    <body>
-    <video id="video" autoplay playsinline muted></video>
-    <img id="preview" />
-    <canvas id="canvas"></canvas>
-    <button class="btn" id="capture">📸 Capture Photo</button>
-    <button class="btn" id="retake">🔄 Retake</button>
-    <div id="status">Starting rear camera…</div>
 
-    <script>
-    const video   = document.getElementById('video');
-    const canvas  = document.getElementById('canvas');
-    const preview = document.getElementById('preview');
-    const capBtn  = document.getElementById('capture');
-    const retakeBtn = document.getElementById('retake');
-    const status  = document.getElementById('status');
+    # Pass frame image + cutout into the component via template literals
+    COMP_HTML = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap" rel="stylesheet">
+<style>
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  body {{ background:#062918; font-family:'Cinzel',serif; padding:6px 4px; }}
 
-    async function startCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width:{ideal:1920}, height:{ideal:1080} },
-          audio: false
-        });
-        video.srcObject = stream;
-        await new Promise(r => video.onloadedmetadata = r);
-        const track = stream.getVideoTracks()[0];
-        const s = track.getSettings();
-        status.textContent = s.facingMode === 'environment' ? '📷 Rear camera active' : '📷 Camera active';
-      } catch(e) {
-        status.textContent = '⚠ ' + e.message;
-      }
-    }
+  #wrap {{
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+  }}
 
-    capBtn.addEventListener('click', () => {
-      canvas.width  = video.videoWidth;
-      canvas.height = video.videoHeight;
-      canvas.getContext('2d').drawImage(video, 0, 0);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+  /* Live composite canvas — video + frame drawn here every frame */
+  #liveCanvas {{
+    width: 100%;
+    border-radius: 8px;
+    display: block;
+    box-shadow: 0 8px 40px rgba(0,0,0,.6);
+  }}
 
-      // Show preview, hide live feed
-      preview.src = dataUrl;
-      preview.style.display = 'block';
-      video.style.display = 'none';
-      capBtn.style.display = 'none';
-      retakeBtn.style.display = 'block';
-      status.textContent = '✅ Photo captured — scroll down to see it framed!';
+  /* Captured still — shown after snap */
+  #snapCanvas {{
+    width: 100%;
+    border-radius: 8px;
+    display: none;
+    box-shadow: 0 8px 40px rgba(0,0,0,.6);
+  }}
 
-      // Send to Streamlit
-      Streamlit.setComponentValue(dataUrl);
-    });
+  .row {{ display:flex; gap:8px; margin-top:10px; max-width:480px; margin-left:auto; margin-right:auto; }}
+  .btn {{
+    flex:1; padding:11px 6px;
+    background: linear-gradient(135deg,#7a5c10,#c9a84c,#7a5c10);
+    color:#062918; border:none; border-radius:3px;
+    font-family:'Cinzel',serif; font-weight:700;
+    font-size:.78rem; letter-spacing:.1em;
+    text-transform:uppercase; cursor:pointer;
+    box-shadow:0 4px 18px rgba(201,168,76,.3);
+    transition: box-shadow .2s, opacity .15s;
+  }}
+  .btn:active {{ opacity:.75; }}
+  .btn:hover  {{ box-shadow:0 8px 30px rgba(201,168,76,.55); }}
+  .btn.sec    {{ background:transparent; border:1px solid rgba(201,168,76,.45); color:rgba(201,168,76,.8); box-shadow:none; }}
 
-    retakeBtn.addEventListener('click', () => {
-      preview.style.display = 'none';
-      video.style.display = 'block';
-      capBtn.style.display = 'block';
-      retakeBtn.style.display = 'none';
-      status.textContent = '📷 Ready — aim and capture';
-      Streamlit.setComponentValue(null);
-    });
+  #status {{
+    text-align:center; color:rgba(201,168,76,.55);
+    font-size:.68rem; letter-spacing:.1em;
+    margin-top:7px; min-height:1em;
+  }}
+</style>
+</head>
+<body>
 
-    startCamera();
-    Streamlit.setFrameHeight(document.body.scrollHeight + 20);
-    window.addEventListener('resize', () => Streamlit.setFrameHeight(document.body.scrollHeight + 20));
-    </script>
-    </body>
-    </html>
-    """
+<div id="wrap">
+  <canvas id="liveCanvas"></canvas>
+  <canvas id="snapCanvas"></canvas>
+</div>
 
-    captured_b64 = st_html(camera_html, height=420)
+<div class="row">
+  <button class="btn" id="snapBtn">📸 &nbsp;Capture</button>
+  <button class="btn sec" id="retakeBtn" style="display:none">🔄 &nbsp;Retake</button>
+  <button class="btn sec" id="flipBtn">🔁 &nbsp;Flip Cam</button>
+</div>
+<div id="status">Starting rear camera…</div>
 
-    if captured_b64 and isinstance(captured_b64, str) and captured_b64.startswith("data:image"):
+<!-- Hidden video element – never shown, just feeds the canvas -->
+<video id="vid" autoplay playsinline muted style="display:none"></video>
+
+<script>
+const liveC   = document.getElementById('liveCanvas');
+const snapC   = document.getElementById('snapCanvas');
+const liveCtx = liveC.getContext('2d');
+const snapCtx = snapC.getContext('2d');
+const vid     = document.getElementById('vid');
+const snapBtn = document.getElementById('snapBtn');
+const retakeBtn = document.getElementById('retakeBtn');
+const flipBtn = document.getElementById('flipBtn');
+const status  = document.getElementById('status');
+
+// ── Frame image ─────────────────────────────────────────────────────────────
+const frameImg = new Image();
+frameImg.src   = 'data:image/png;base64,{FRAME_B64}';
+
+// Cutout coords (pixels in the full-res frame image)
+const CUT = {{ top:{CUTOUT['top']}, bottom:{CUTOUT['bottom']}, left:{CUTOUT['left']}, right:{CUTOUT['right']} }};
+const CUT_W = CUT.right  - CUT.left;   // width of the photo slot
+const CUT_H = CUT.bottom - CUT.top;    // height of the photo slot
+const CUT_RATIO = CUT_W / CUT_H;       // aspect ratio of slot
+
+// ── Camera state ────────────────────────────────────────────────────────────
+let stream       = null;
+let facingMode   = 'environment';   // start with rear camera
+let animId       = null;
+let snapped      = false;
+
+async function startCamera(facing) {{
+  if (stream) {{ stream.getTracks().forEach(t => t.stop()); }}
+  status.textContent = 'Starting ' + (facing==='environment' ? 'rear' : 'front') + ' camera…';
+  try {{
+    stream = await navigator.mediaDevices.getUserMedia({{
+      video: {{
+        facingMode: {{ ideal: facing }},
+        width:  {{ ideal: 1920 }},
+        height: {{ ideal: 1080 }}
+      }},
+      audio: false
+    }});
+    vid.srcObject = stream;
+    await new Promise(r => {{ vid.onloadedmetadata = r; }});
+    await vid.play();
+
+    const t = stream.getVideoTracks()[0];
+    const s = t.getSettings();
+    facingMode = s.facingMode || facing;
+    status.textContent = facingMode === 'environment' ? '📷 Rear camera — aim & capture' : '🤳 Front camera active';
+
+    if (!snapped) startLive();
+  }} catch(e) {{
+    status.textContent = '⚠ ' + e.message;
+  }}
+}}
+
+// ── Live compositing loop ────────────────────────────────────────────────────
+function startLive() {{
+  if (animId) cancelAnimationFrame(animId);
+
+  function draw() {{
+    if (snapped) return;
+    animId = requestAnimationFrame(draw);
+
+    const vw = vid.videoWidth;
+    const vh = vid.videoHeight;
+    if (!vw || !vh || !frameImg.complete) return;
+
+    // Frame aspect ratio drives the canvas size
+    const FW = frameImg.naturalWidth  || 1054;
+    const FH = frameImg.naturalHeight || 1067;
+
+    // Set canvas resolution once
+    if (liveC.width !== FW) {{ liveC.width = FW; liveC.height = FH; }}
+
+    // --- Draw video into the cutout, centre-cropped, NO rotation ---
+    const vRatio = vw / vh;
+
+    let sx, sy, sw, sh;
+    if (vRatio > CUT_RATIO) {{
+      // video is wider than slot → crop sides
+      sh = vh;
+      sw = Math.round(vh * CUT_RATIO);
+      sx = Math.round((vw - sw) / 2);
+      sy = 0;
+    }} else {{
+      // video is taller than slot → crop top/bottom
+      sw = vw;
+      sh = Math.round(vw / CUT_RATIO);
+      sx = 0;
+      sy = Math.round((vh - sh) / 2);
+    }}
+
+    liveCtx.drawImage(vid, sx, sy, sw, sh, CUT.left, CUT.top, CUT_W, CUT_H);
+
+    // --- Overlay frame on top ---
+    liveCtx.drawImage(frameImg, 0, 0, FW, FH);
+  }}
+
+  draw();
+}}
+
+// ── Capture ──────────────────────────────────────────────────────────────────
+snapBtn.addEventListener('click', () => {{
+  if (!vid.videoWidth) return;
+  snapped = true;
+  if (animId) cancelAnimationFrame(animId);
+
+  const FW = frameImg.naturalWidth  || 1054;
+  const FH = frameImg.naturalHeight || 1067;
+  snapC.width  = FW;
+  snapC.height = FH;
+
+  const vw = vid.videoWidth, vh = vid.videoHeight;
+  const vRatio = vw / vh;
+  let sx, sy, sw, sh;
+  if (vRatio > CUT_RATIO) {{
+    sh = vh; sw = Math.round(vh * CUT_RATIO); sx = Math.round((vw-sw)/2); sy = 0;
+  }} else {{
+    sw = vw; sh = Math.round(vw/CUT_RATIO); sx = 0; sy = Math.round((vh-sh)/2);
+  }}
+
+  snapCtx.drawImage(vid, sx, sy, sw, sh, CUT.left, CUT.top, CUT_W, CUT_H);
+  snapCtx.drawImage(frameImg, 0, 0, FW, FH);
+
+  // Show snap, hide live
+  liveC.style.display   = 'none';
+  snapC.style.display   = 'block';
+  snapBtn.style.display = 'none';
+  retakeBtn.style.display = 'flex';
+  flipBtn.style.display   = 'none';
+  status.textContent = '✅ Photo taken! Scroll down to download.';
+
+  // Send base64 JPEG back to Streamlit
+  const dataUrl = snapC.toDataURL('image/jpeg', 0.95);
+  Streamlit.setComponentValue(dataUrl);
+}});
+
+// ── Retake ───────────────────────────────────────────────────────────────────
+retakeBtn.addEventListener('click', () => {{
+  snapped = false;
+  liveC.style.display     = 'block';
+  snapC.style.display     = 'none';
+  snapBtn.style.display   = 'flex';
+  retakeBtn.style.display = 'none';
+  flipBtn.style.display   = 'flex';
+  status.textContent = '📷 Ready — aim and capture';
+  Streamlit.setComponentValue(null);
+  startLive();
+}});
+
+// ── Flip camera ──────────────────────────────────────────────────────────────
+flipBtn.addEventListener('click', () => {{
+  facingMode = facingMode === 'environment' ? 'user' : 'environment';
+  startCamera(facingMode);
+}});
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+frameImg.onload = () => startCamera('environment');
+if (frameImg.complete) startCamera('environment');
+
+// Auto-height
+function resize() {{ Streamlit.setFrameHeight(document.body.scrollHeight + 10); }}
+window.addEventListener('resize', resize);
+setTimeout(resize, 300);
+setTimeout(resize, 1200);
+</script>
+</body>
+</html>"""
+
+    result = st_html(COMP_HTML, height=700)
+
+    if result and isinstance(result, str) and result.startswith("data:image"):
         try:
-            _, data = captured_b64.split(",", 1)
-            photo_source = Image.open(io.BytesIO(base64.b64decode(data))).convert("RGB")
+            _, data = result.split(",", 1)
+            img_bytes = base64.b64decode(data)
+            # ImageOps.exif_transpose guards against any EXIF rotation
+            photo_source = ImageOps.exif_transpose(Image.open(io.BytesIO(img_bytes)).convert("RGB"))
+            st.session_state.cam_snap = photo_source
         except Exception as ex:
-            st.error(f"Could not decode captured image: {ex}")
+            st.error(f"Could not decode image: {ex}")
+    elif st.session_state.cam_snap is not None and result is None:
+        # retake was pressed – clear
+        st.session_state.cam_snap = None
 
-# ── Upload tab ─────────────────────────────────────────────────────────────────
+    # Use cam snap if available (persists across reruns)
+    if photo_source is None and st.session_state.cam_snap is not None:
+        photo_source = st.session_state.cam_snap
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TAB 2 – UPLOAD
+# ─────────────────────────────────────────────────────────────────────────────
 with tab_upload:
-    uploaded = st.file_uploader("Upload a photo", type=["jpg","jpeg","png"])
+    st.markdown("")
+    uploaded = st.file_uploader("Choose a photo", type=["jpg","jpeg","png"])
     if uploaded:
-        photo_source = Image.open(uploaded).convert("RGB")
+        raw = Image.open(uploaded)
+        raw = ImageOps.exif_transpose(raw).convert("RGB")
+        photo_source = raw
 
-# ─── Frame & display ──────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# RESULT — framed photo + download
+# ══════════════════════════════════════════════════════════════════════════════
 if photo_source:
+    # For upload tab — camera tab already composites on JS side, but we still
+    # run apply_frame so both tabs produce identical server-side PNG for download.
     framed = apply_frame(photo_source)
-    st.markdown('<div class="gold-divider"></div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="gold-line"></div>', unsafe_allow_html=True)
+    st.markdown("### 🖼 Your Framed Photo")
     st.image(framed, use_column_width=True)
 
     col1, col2 = st.columns(2)
     with col1:
-        buf = io.BytesIO()
-        framed.save(buf, format="PNG")
-        buf.seek(0)
-        st.download_button("⬇ Download Photo", data=buf,
-                           file_name="birthday_elease_framed.png", mime="image/png",
-                           use_container_width=True)
+        st.download_button(
+            "⬇  Download",
+            data=img_to_dl_bytes(framed),
+            file_name="elease_80th_birthday.png",
+            mime="image/png",
+            use_container_width=True,
+        )
     with col2:
-        if st.button("➕ Save to Gallery", key="add_gallery"):
+        if st.button("➕  Save to Gallery"):
             st.session_state.gallery.insert(0, framed)
-            st.success("Saved!")
+            st.success("Saved to gallery!")
             st.rerun()
 
-# ─── Gallery ──────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# GALLERY
+# ══════════════════════════════════════════════════════════════════════════════
 if st.session_state.gallery:
-    st.markdown('<div class="gold-divider"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-label">🖼 Gallery</div>', unsafe_allow_html=True)
-    cols = st.columns(min(len(st.session_state.gallery), 3))
-    for i, img in enumerate(st.session_state.gallery[:9]):
-        with cols[i % 3]:
-            st.image(img, use_column_width=True)
-            buf = io.BytesIO()
-            img.save(buf, format="PNG")
-            buf.seek(0)
-            st.download_button("⬇ Save", data=buf,
-                               file_name=f"birthday_elease_{i+1}.png", mime="image/png",
-                               key=f"dl_{i}", use_container_width=True)
-    if st.button("🗑 Clear Gallery"):
+    st.markdown('<div class="gold-line"></div>', unsafe_allow_html=True)
+    st.markdown("### 📸 Gallery")
+
+    for row_start in range(0, min(len(st.session_state.gallery), 9), 3):
+        row_imgs = st.session_state.gallery[row_start:row_start+3]
+        cols = st.columns(len(row_imgs))
+        for i, img in enumerate(row_imgs):
+            with cols[i]:
+                st.image(img, use_column_width=True)
+                st.download_button(
+                    "⬇",
+                    data=img_to_dl_bytes(img),
+                    file_name=f"elease_80th_{row_start+i+1}.png",
+                    mime="image/png",
+                    key=f"dl_{row_start+i}",
+                    use_container_width=True,
+                )
+
+    st.markdown("")
+    if st.button("🗑  Clear Gallery"):
         st.session_state.gallery = []
         st.rerun()
 
-# ─── Footer ───────────────────────────────────────────────────────────────────
-st.markdown('<div class="gold-divider"></div>', unsafe_allow_html=True)
-st.markdown(
-    '<div style="font-family:\'Cormorant Garamond\',serif;font-style:italic;'
-    'font-size:0.85rem;color:rgba(201,168,76,0.35);text-align:center;letter-spacing:0.04em;">'
-    '🌿 Celebrating 80 magnificent years of love, grace, and joy 🌿</div>',
-    unsafe_allow_html=True)
+# ══════════════════════════════════════════════════════════════════════════════
+# FOOTER
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="gold-line"></div>', unsafe_allow_html=True)
+st.markdown("""
+<div style="text-align:center;padding:18px 0 28px;">
+  <div style="font-family:'Cinzel',serif;font-size:.65rem;letter-spacing:.22em;
+              color:rgba(201,168,76,.3);text-transform:uppercase;margin-bottom:8px;">
+    Celebrating Eight Decades
+  </div>
+  <div style="font-family:'Cormorant Garamond',serif;font-style:italic;
+              font-size:1rem;color:rgba(201,168,76,.4);letter-spacing:.05em;">
+    🌿 &nbsp; Eighty years of love, grace, wisdom &amp; joy &nbsp; 🌿
+  </div>
+  <div style="margin-top:12px;font-size:.7rem;color:rgba(201,168,76,.18);
+              letter-spacing:.15em;font-family:'Cinzel',serif;">
+    ✦ &nbsp; Elease Benford &nbsp; ✦
+  </div>
+</div>
+""", unsafe_allow_html=True)
