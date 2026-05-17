@@ -75,6 +75,12 @@ h1 {
     margin-bottom: 8px;
 }
 .sparkle-bg { position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:-1;overflow:hidden; }
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] { background: transparent !important; border-bottom: 1px solid rgba(201,168,76,0.3) !important; gap: 4px; }
+.stTabs [data-baseweb="tab"] { font-family: 'Cinzel', serif !important; font-size: 0.78rem !important; letter-spacing: 0.1em !important; color: rgba(201,168,76,0.5) !important; background: transparent !important; border: none !important; padding: 8px 20px !important; }
+.stTabs [aria-selected="true"] { color: #ffe066 !important; border-bottom: 2px solid #c9a84c !important; background: rgba(201,168,76,0.07) !important; }
+.stCameraInput label { color: #c9a84c !important; font-family: 'Cinzel', serif !important; font-size: 0.78rem !important; letter-spacing: 0.08em !important; }
+.stCameraInput video { border: 1px solid rgba(201,168,76,0.3); border-radius: 6px; }
 </style>
 
 <div class="sparkle-bg" id="spbg"></div>
@@ -127,15 +133,26 @@ st.markdown('<div class="subtitle">Elease Benford · Celebrating 80 Magnificent 
             unsafe_allow_html=True)
 st.markdown('<div class="gold-divider"></div>', unsafe_allow_html=True)
 
-# ─── Upload ───────────────────────────────────────────────────────────────────
-uploaded = st.file_uploader(
-    "Upload a photo to apply the frame",
-    type=["jpg", "jpeg", "png"],
-)
+# ─── Tabs: Camera vs Upload ────────────────────────────────────────────────────
+tab_cam, tab_upload = st.tabs(["📷 Take Photo", "🖼 Upload Photo"])
 
-if uploaded:
-    photo  = Image.open(uploaded).convert("RGB")
-    framed = apply_frame(photo)
+photo_source = None
+
+with tab_cam:
+    camera_photo = st.camera_input("Take a picture")
+    if camera_photo:
+        photo_source = Image.open(camera_photo).convert("RGB")
+
+with tab_upload:
+    uploaded = st.file_uploader(
+        "Upload a photo",
+        type=["jpg", "jpeg", "png"],
+    )
+    if uploaded:
+        photo_source = Image.open(uploaded).convert("RGB")
+
+if photo_source:
+    framed = apply_frame(photo_source)
 
     st.markdown('<div class="gold-divider"></div>', unsafe_allow_html=True)
     st.image(framed, use_column_width=True)
