@@ -1,341 +1,718 @@
 import streamlit as st
-import cv2
-import numpy as np
 from PIL import Image
 import io
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.image import MIMEImage
-from email.mime.text import MIMEText
-import csv
 import os
-from datetime import datetime
-from google.oauth2.service_account import Credentials
-from google.auth.transport.requests import Request
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-import json
+import base64
+from streamlit.components.v1 import html as st_html
 
-# Page configuration
-st.set_page_config(page_title="Birthday Photo Frame Studio", layout="centered")
+# ── Page Config ────────────────────────────────────────────────
+st.set_page_config(
+    page_title="✦ Apostle Victor A. Howard Sr. – Birthday Celebration",
+    layout="centered",
+    initial_sidebar_state="collapsed",
+)
 
-# Initialize session state
-if 'processed_image' not in st.session_state:
-    st.session_state.processed_image = None
-if 'original_image' not in st.session_state:
-    st.session_state.original_image = None
-if 'selected_frame' not in st.session_state:
-    st.session_state.selected_frame = "Elease Benford 80th Birthday"
+# ── Frame Setup ────────────────────────────────────────────────
+FRAME_PATH = os.path.join(os.path.dirname(__file__), "apostle_victor_frame.png")
+FRAME_OK = os.path.exists(FRAME_PATH)
 
-# Frame configurations with cutout coordinates
-FRAMES = {
-    "Elease Benford 80th Birthday": {
-        "file": "frame.png",
-        "cutout_top": 14,
-        "cutout_bottom": 1444,
-        "cutout_left": 28,
-        "cutout_right": 801,
-        "title": "80th Birthday Celebration"
-    },
-    "Apostle Victor A. Howard Sr.": {
-        "file": "apostle_victor_frame.png",
-        "cutout_top": 375,
-        "cutout_bottom": 1243,
-        "cutout_left": 234,
-        "cutout_right": 627,
-        "title": "Birthday Dinner Celebration"
-    }
+if FRAME_OK:
+    frame_img = Image.open(FRAME_PATH)
+    frame_b64 = base64.b64encode(open(FRAME_PATH, "rb").read()).decode()
+
+# ── Global CSS: Full-screen immersive design ───────────────────
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&display=swap');
+
+html, body,
+[data-testid="stAppViewContainer"],
+[data-testid="stAppViewContainer"] > .main,
+[data-testid="stMainBlockContainer"],
+.stMainBlockContainer {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+  background: #0a0a0a !important;
 }
 
-# Title and description
-st.title("🎉 Birthday Photo Frame Studio")
-st.markdown("Capture your photo, choose a frame, and send it via email!")
+[data-testid="stAppViewContainer"] > .main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-# Frame selection
-st.sidebar.header("🖼️ Frame Selection")
-selected_frame_name = st.sidebar.radio("Choose a frame:", list(FRAMES.keys()))
-st.session_state.selected_frame = selected_frame_name
-frame_config = FRAMES[selected_frame_name]
+.stMainBlockContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 !important;
+}
 
-# Load the selected frame image
-frame_path = os.path.join(os.path.dirname(__file__), frame_config["file"])
-if not os.path.exists(frame_path):
-    st.error(f"Frame image not found at {frame_path}")
-    st.stop()
+/* Hide Streamlit chrome */
+header, footer, [data-testid="stToolbar"], [data-testid="stDecoration"] {
+  display: none !important;
+}
 
-frame_image = Image.open(frame_path)
-st.sidebar.image(frame_image, caption=f"Selected: {selected_frame_name}", use_column_width=True)
+/* Container styling */
+.main-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  overflow: hidden;
+}
 
-# Helper function to overlay frame on photo with precise cropping
-def overlay_frame_on_photo(photo_image, frame_image, frame_config):
-    """Overlay the frame on the photo, cropping the photo to fit the exact cutout area."""
-    cutout_top = frame_config["cutout_top"]
-    cutout_bottom = frame_config["cutout_bottom"]
-    cutout_left = frame_config["cutout_left"]
-    cutout_right = frame_config["cutout_right"]
-    
-    cutout_width = cutout_right - cutout_left
-    cutout_height = cutout_bottom - cutout_top
-    
-    # Get photo dimensions
-    photo_width, photo_height = photo_image.size
-    
-    # Calculate aspect ratios
-    cutout_aspect = cutout_width / cutout_height
-    photo_aspect = photo_width / photo_height
-    
-    # Crop photo to match cutout aspect ratio
-    if photo_aspect > cutout_aspect:
-        # Photo is wider, crop width
-        new_width = int(photo_height * cutout_aspect)
-        left = (photo_width - new_width) // 2
-        photo_cropped = photo_image.crop((left, 0, left + new_width, photo_height))
-    else:
-        # Photo is taller, crop height
-        new_height = int(photo_width / cutout_aspect)
-        top = (photo_height - new_height) // 2
-        photo_cropped = photo_image.crop((0, top, photo_width, top + new_height))
-    
-    # Resize cropped photo to exact cutout dimensions
-    photo_resized = photo_cropped.resize((cutout_width, cutout_height), Image.Resampling.LANCZOS)
-    
-    # Convert frame to RGBA if needed
-    if frame_image.mode != 'RGBA':
-        frame_rgba = frame_image.convert('RGBA')
-    else:
-        frame_rgba = frame_image
-    
-    # Convert resized photo to RGBA
-    photo_rgba = photo_resized.convert('RGBA')
-    
-    # Create a new image with the frame size
-    result = Image.new('RGBA', frame_image.size, (0, 0, 0, 0))
-    
-    # Paste the photo into the exact cutout position
-    result.paste(photo_rgba, (cutout_left, cutout_top), photo_rgba)
-    
-    # Composite with frame on top
-    result = Image.alpha_composite(result, frame_rgba)
-    
-    return result.convert('RGB')
+.frame-container {
+  position: relative;
+  width: 90vmin;
+  height: auto;
+  max-width: 600px;
+  max-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-# Helper function to get Google Drive service
-def get_gdrive_service():
-    """Authenticate and return Google Drive service."""
-    try:
-        creds_dict = st.secrets["google_drive"]
-        creds = Credentials.from_service_account_info(creds_dict)
-        service = build('drive', 'v3', credentials=creds)
-        return service
-    except Exception as e:
-        st.error(f"Failed to authenticate Google Drive: {e}")
-        return None
+/* Typography */
+h1, h2, h3 {
+  font-family: 'Playfair Display', serif !important;
+  color: #d4af37 !important;
+  text-align: center !important;
+  text-transform: uppercase !important;
+  letter-spacing: 2px !important;
+}
 
-# Helper function to create or get Google Drive folder
-def get_or_create_gdrive_folder(service, folder_name="Birthday_Photos"):
-    """Get or create a Google Drive folder."""
-    try:
-        # Search for existing folder
-        query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
-        results = service.files().list(q=query, spaces='drive', fields='files(id, name)', pageSize=10).execute()
-        files = results.get('files', [])
+h1 {
+  font-size: 2.5rem !important;
+  font-weight: 900 !important;
+  margin: 0 !important;
+}
+
+h2 {
+  font-size: 1.8rem !important;
+  font-weight: 700 !important;
+  margin: 1rem 0 !important;
+}
+
+p {
+  font-family: 'Cormorant Garamond', serif !important;
+  color: #e0e0e0 !important;
+  font-size: 1.1rem !important;
+  text-align: center !important;
+}
+
+/* Button styling */
+button {
+  background: linear-gradient(135deg, #d4af37 0%, #f0e68c 100%) !important;
+  color: #1a1a2e !important;
+  border: none !important;
+  padding: 12px 28px !important;
+  font-size: 1rem !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  font-family: 'Cormorant Garamond', serif !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1px !important;
+  margin: 8px !important;
+  box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3) !important;
+}
+
+button:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.5) !important;
+}
+
+button:active {
+  transform: translateY(0) !important;
+}
+
+/* Input styling */
+input[type="text"], input[type="email"], textarea {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #e0e0e0 !important;
+  border: 2px solid #d4af37 !important;
+  padding: 10px 15px !important;
+  border-radius: 6px !important;
+  font-family: 'Cormorant Garamond', serif !important;
+  font-size: 1rem !important;
+}
+
+input[type="text"]:focus, input[type="email"]:focus, textarea:focus {
+  outline: none !important;
+  border-color: #f0e68c !important;
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.3) !important;
+}
+
+/* Gallery styling */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  border: 2px solid #d4af37;
+}
+
+.gallery-item {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  aspect-ratio: 9/16;
+  border: 2px solid #d4af37;
+  transition: all 0.3s ease;
+}
+
+.gallery-item:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
+}
+
+.gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Status messages */
+.status-success {
+  color: #4ade80 !important;
+  font-weight: 700 !important;
+}
+
+.status-error {
+  color: #f87171 !important;
+  font-weight: 700 !important;
+}
+
+.status-info {
+  color: #60a5fa !important;
+  font-weight: 700 !important;
+}
+
+/* Overlay styling */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.overlay.open {
+  display: flex;
+}
+
+.overlay-content {
+  background: #1a1a2e;
+  padding: 30px;
+  border-radius: 12px;
+  border: 2px solid #d4af37;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  h1 { font-size: 1.8rem !important; }
+  h2 { font-size: 1.4rem !important; }
+  p { font-size: 1rem !important; }
+  button { padding: 10px 20px !important; font-size: 0.9rem !important; }
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ── HTML/Canvas/Camera Interface ───────────────────────────────
+if FRAME_OK:
+    st_html(f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {{ margin: 0; padding: 20px; background: #0a0a0a; font-family: 'Cormorant Garamond', serif; }}
+        .main-wrapper {{ 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            min-height: 100vh;
+            gap: 20px;
+        }}
+        .title {{
+            font-family: 'Playfair Display', serif;
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: #d4af37;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin: 0;
+        }}
+        .subtitle {{
+            font-family: 'Playfair Display', serif;
+            font-size: 1.4rem;
+            color: #f0e68c;
+            text-align: center;
+            margin: 0;
+        }}
+        .controls {{
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }}
+        button {{
+            background: linear-gradient(135deg, #d4af37 0%, #f0e68c 100%);
+            color: #1a1a2e;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: 700;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Cormorant Garamond', serif;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+        }}
+        button:hover {{ transform: translateY(-2px); box-shadow: 0 6px 20px rgba(212, 175, 55, 0.5); }}
+        button:disabled {{ opacity: 0.5; cursor: not-allowed; }}
+        .frame-wrapper {{
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+            width: 90vmin;
+            max-width: 600px;
+        }}
+        #frameImg {{
+            width: 100%;
+            height: auto;
+            display: block;
+        }}
+        canvas {{
+            display: none;
+        }}
+        .status {{
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 1.1rem;
+            color: #e0e0e0;
+            text-align: center;
+            min-height: 30px;
+        }}
+        .status.success {{ color: #4ade80; font-weight: 700; }}
+        .status.error {{ color: #f87171; font-weight: 700; }}
+        .status.info {{ color: #60a5fa; font-weight: 700; }}
+        .gallery-overlay {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }}
+        .gallery-overlay.open {{
+            display: flex;
+        }}
+        .gallery-content {{
+            background: #1a1a2e;
+            padding: 30px;
+            border-radius: 12px;
+            border: 2px solid #d4af37;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
+        }}
+        .gallery-title {{
+            font-family: 'Playfair Display', serif;
+            font-size: 1.8rem;
+            color: #d4af37;
+            text-align: center;
+            margin-bottom: 20px;
+        }}
+        .gallery-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }}
+        .gallery-item {{
+            position: relative;
+            overflow: hidden;
+            border-radius: 6px;
+            aspect-ratio: 9/16;
+            border: 2px solid #d4af37;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }}
+        .gallery-item:hover {{
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
+        }}
+        .gallery-item img {{
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }}
+        .gallery-item-btn {{
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            background: rgba(212, 175, 55, 0.9);
+            color: #1a1a2e;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }}
+        .gallery-item:hover .gallery-item-btn {{
+            opacity: 1;
+        }}
+        .gallery-empty {{
+            text-align: center;
+            color: #999;
+            padding: 40px;
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 1.2rem;
+        }}
+        .gallery-controls {{
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }}
+        input[type="file"] {{
+            display: none;
+        }}
+        .file-label {{
+            background: linear-gradient(135deg, #d4af37 0%, #f0e68c 100%);
+            color: #1a1a2e;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: 700;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Cormorant Garamond', serif;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+            display: inline-block;
+        }}
+        .file-label:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(212, 175, 55, 0.5);
+        }}
+    </style>
+    </head>
+    <body>
+    <div class="main-wrapper">
+        <h1 class="title">✦ Apostle Victor A. Howard Sr. ✦</h1>
+        <p class="subtitle">Birthday Celebration Photo Frame</p>
         
-        if files:
-            return files[0]['id']
+        <div class="controls">
+            <button id="camBtn" onclick="toggleCamera()">📷 Camera</button>
+            <label class="file-label" for="fi">📁 Upload</label>
+            <input type="file" id="fi" accept="image/*">
+            <button id="galBtn" onclick="openGal()" style="display:none;">🖼 Gallery (<span id="galCount">0</span>)</button>
+        </div>
         
-        # Create new folder if it doesn't exist
-        file_metadata = {
-            'name': folder_name,
-            'mimeType': 'application/vnd.google-apps.folder'
-        }
-        folder = service.files().create(body=file_metadata, fields='id').execute()
-        return folder.get('id')
-    except Exception as e:
-        st.error(f"Failed to manage Google Drive folder: {e}")
-        return None
-
-# Helper function to upload image to Google Drive
-def upload_to_gdrive(service, image_path, folder_id):
-    """Upload image to Google Drive folder."""
-    try:
-        file_metadata = {
-            'name': os.path.basename(image_path),
-            'parents': [folder_id]
-        }
-        media = MediaFileUpload(image_path, mimetype='image/jpeg')
-        file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
-        return file.get('webViewLink')
-    except Exception as e:
-        st.error(f"Failed to upload to Google Drive: {e}")
-        return None
-
-# Helper function to send email
-def send_email_with_image(recipient_email, image_path, image_link, frame_name):
-    """Send email with the framed photo."""
-    try:
-        gmail_user = st.secrets["gmail"]["email"]
-        gmail_password = st.secrets["gmail"]["password"]
+        <div class="status" id="status">Ready to capture your photo</div>
         
-        # Create email
-        msg = MIMEMultipart()
-        msg['From'] = gmail_user
-        msg['To'] = recipient_email
-        msg['Subject'] = f"🎉 Your {frame_name} Photo Frame"
+        <div class="frame-wrapper">
+            <img id="frameImg" src="data:image/png;base64,{frame_b64}" alt="Frame">
+            <canvas id="liveC"></canvas>
+            <canvas id="snapC"></canvas>
+            <canvas id="upC"></canvas>
+        </div>
         
-        # Email body
-        body = f"""
-        <html>
-            <body>
-                <h2>Happy Birthday! 🎉</h2>
-                <p>Thank you for celebrating with us! Here's your framed birthday photo.</p>
-                <p><strong>View your photo online:</strong> <a href="{image_link}">Click here</a></p>
-                <p>Warm wishes,<br>The Birthday Team</p>
-            </body>
-        </html>
-        """
-        msg.attach(MIMEText(body, 'html'))
+        <div class="controls" id="camControls" style="display:none;">
+            <button id="snapBtn" onclick="doSnap()">📸 Capture</button>
+            <button id="flipBtn" onclick="flipCam()">🔄 Flip</button>
+            <button id="retakeBtn" onclick="doRetake()" hidden>🔁 Retake</button>
+        </div>
+    </div>
+    
+    <div class="gallery-overlay" id="galOverlay">
+        <div class="gallery-content">
+            <h2 class="gallery-title">✦ Your Photos ✦</h2>
+            <div class="gallery-grid" id="galGrid"></div>
+            <div class="gallery-empty" id="galEmpty">No photos yet</div>
+            <div class="gallery-controls">
+                <button onclick="closeGal()">Close</button>
+                <button onclick="clearGal()" style="background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);">Clear All</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+    const frameImg = document.getElementById('frameImg');
+    const liveC = document.getElementById('liveC');
+    const snapC = document.getElementById('snapC');
+    const upC = document.getElementById('upC');
+    const status = document.getElementById('status');
+    const camBtn = document.getElementById('camBtn');
+    const camControls = document.getElementById('camControls');
+    const galBtn = document.getElementById('galBtn');
+    
+    let vid, animId = null, snapped = false, facing = 'environment';
+    const gallery = [];
+    
+    function getFW() {{ return frameImg.naturalWidth || 600; }}
+    function getFH() {{ return frameImg.naturalHeight || 1067; }}
+    
+    function composite(src, canvas) {{
+        const FW = getFW(), FH = getFH();
+        const ctx = canvas.getContext('2d');
+        canvas.width = FW;
+        canvas.height = FH;
         
-        # Attach image
-        with open(image_path, 'rb') as attachment:
-            image_data = attachment.read()
-            image_part = MIMEImage(image_data)
-            image_part.add_header('Content-Disposition', 'attachment', filename=os.path.basename(image_path))
-            msg.attach(image_part)
+        // Cutout coordinates for Apostle Victor frame
+        const cutoutTop = 375, cutoutBottom = 1243, cutoutLeft = 234, cutoutRight = 627;
+        const cutoutW = cutoutRight - cutoutLeft, cutoutH = cutoutBottom - cutoutTop;
         
-        # Send email
-        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
-        server.login(gmail_user, gmail_password)
-        server.send_message(msg)
-        server.quit()
+        // Get source dimensions
+        const srcW = src.videoWidth || src.naturalWidth || src.width;
+        const srcH = src.videoHeight || src.naturalHeight || src.height;
+        const srcAspect = srcW / srcH;
+        const cutoutAspect = cutoutW / cutoutH;
         
-        return True
-    except Exception as e:
-        st.error(f"Failed to send email: {e}")
-        return False
+        // Calculate crop
+        let sx, sy, sw, sh;
+        if (srcAspect > cutoutAspect) {{
+            sw = srcH * cutoutAspect;
+            sh = srcH;
+            sx = (srcW - sw) / 2;
+            sy = 0;
+        }} else {{
+            sw = srcW;
+            sh = srcW / cutoutAspect;
+            sx = 0;
+            sy = (srcH - sh) / 2;
+        }}
+        
+        // Draw cropped source to cutout area
+        ctx.drawImage(src, sx, sy, sw, sh, cutoutLeft, cutoutTop, cutoutW, cutoutH);
+        
+        // Composite frame on top
+        ctx.drawImage(frameImg, 0, 0, FW, FH);
+    }}
+    
+    function toggleCamera() {{
+        if (vid && vid.srcObject) {{
+            vid.srcObject.getTracks().forEach(t => t.stop());
+            vid = null;
+            camBtn.textContent = '📷 Camera';
+            camControls.style.display = 'none';
+            snapped = false;
+            liveC.style.display = 'none';
+            snapC.style.display = 'none';
+            status.textContent = 'Camera closed';
+            status.className = 'status info';
+        }} else {{
+            startCamera(facing);
+        }}
+    }}
+    
+    function startCamera(f) {{
+        facing = f;
+        status.textContent = 'Requesting camera access...';
+        status.className = 'status info';
+        navigator.mediaDevices.getUserMedia({{ video: {{ facingMode: facing }} }})
+            .then(stream => {{
+                vid = document.createElement('video');
+                vid.srcObject = stream;
+                vid.play();
+                camBtn.textContent = '📷 Close Camera';
+                camControls.style.display = 'flex';
+                status.textContent = facing === 'environment' ? '📷 Rear camera — aim & capture' : '🤳 Front camera active';
+                status.className = 'status info';
+                snapped = false;
+                liveC.style.display = 'block';
+                snapC.style.display = 'none';
+                document.getElementById('snapBtn').hidden = false;
+                document.getElementById('flipBtn').hidden = false;
+                document.getElementById('retakeBtn').hidden = true;
+                startLive();
+            }})
+            .catch(e => {{
+                status.textContent = '⚠ ' + e.message;
+                status.className = 'status error';
+            }});
+    }}
+    
+    function startLive() {{
+        if (animId) cancelAnimationFrame(animId);
+        function draw() {{
+            if (snapped) return;
+            animId = requestAnimationFrame(draw);
+            if (!vid.videoWidth || !vid.videoHeight || !frameImg.complete) return;
+            composite(vid, liveC);
+        }}
+        draw();
+    }}
+    
+    function doSnap() {{
+        if (!vid.videoWidth) return;
+        snapped = true;
+        if (animId) cancelAnimationFrame(animId);
+        composite(vid, snapC);
+        liveC.style.display = 'none';
+        snapC.style.display = 'block';
+        document.getElementById('snapBtn').hidden = true;
+        document.getElementById('flipBtn').hidden = true;
+        document.getElementById('retakeBtn').hidden = false;
+        status.textContent = '✅ Photo captured!';
+        status.className = 'status success';
+        
+        // Add to gallery
+        addGallery(snapC);
+    }}
+    
+    function doRetake() {{
+        snapped = false;
+        liveC.style.display = 'block';
+        snapC.style.display = 'none';
+        document.getElementById('snapBtn').hidden = false;
+        document.getElementById('flipBtn').hidden = false;
+        document.getElementById('retakeBtn').hidden = true;
+        status.textContent = '📷 Ready — aim and capture';
+        status.className = 'status info';
+        startLive();
+    }}
+    
+    function flipCam() {{
+        facing = facing === 'environment' ? 'user' : 'environment';
+        if (vid && vid.srcObject) {{
+            vid.srcObject.getTracks().forEach(t => t.stop());
+        }}
+        startCamera(facing);
+    }}
+    
+    // Upload handler
+    document.getElementById('fi').addEventListener('change', e => {{
+        const file = e.target.files[0];
+        if (!file) return;
+        status.textContent = 'Processing…';
+        status.className = 'status info';
+        const reader = new FileReader();
+        reader.onload = ev => {{
+            const img = new Image();
+            img.onload = () => {{
+                function go() {{
+                    composite(img, upC);
+                    upC.style.display = 'block';
+                    status.textContent = '✅ Photo framed — save to gallery!';
+                    status.className = 'status success';
+                    addGallery(upC);
+                }}
+                if (frameImg.complete && frameImg.naturalWidth) go();
+                else frameImg.onload = go;
+            }};
+            img.src = ev.target.result;
+        }};
+        reader.readAsDataURL(file);
+    }});
+    
+    // Gallery functions
+    function addGallery(canvas) {{
+        canvas.toBlob(blob => {{
+            const url = URL.createObjectURL(blob);
+            gallery.unshift(url);
+            renderGal();
+            galBtn.style.display = 'inline-block';
+            document.getElementById('galCount').textContent = gallery.length;
+        }}, 'image/png');
+    }}
+    
+    function renderGal() {{
+        const grid = document.getElementById('galGrid');
+        const empty = document.getElementById('galEmpty');
+        grid.innerHTML = '';
+        empty.style.display = gallery.length ? 'none' : 'block';
+        gallery.forEach((url, i) => {{
+            const wrap = document.createElement('div');
+            wrap.className = 'gallery-item';
+            const img = document.createElement('img');
+            img.src = url;
+            const btn = document.createElement('button');
+            btn.className = 'gallery-item-btn';
+            btn.textContent = '⬇ Save';
+            btn.onclick = e => {{
+                e.stopPropagation();
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `apostle_victor_${{i + 1}}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }};
+            wrap.appendChild(img);
+            wrap.appendChild(btn);
+            grid.appendChild(wrap);
+        }});
+    }}
+    
+    function openGal() {{
+        renderGal();
+        document.getElementById('galOverlay').classList.add('open');
+    }}
+    
+    function closeGal() {{
+        document.getElementById('galOverlay').classList.remove('open');
+    }}
+    
+    function clearGal() {{
+        if (confirm('Clear all photos?')) {{
+            gallery.length = 0;
+            renderGal();
+            galBtn.style.display = 'none';
+            document.getElementById('galCount').textContent = '0';
+            status.textContent = 'Gallery cleared';
+            status.className = 'status info';
+        }}
+    }}
+    
+    // Sync height
+    function syncH() {{
+        try {{
+            window.parent.postMessage({{type: 'streamlit:setFrameHeight', height: document.body.scrollHeight}}, '*');
+        }} catch (e) {{}}
+    }}
+    setInterval(syncH, 800);
+    </script>
+    </body>
+    </html>
+    """, height=1200)
 
-# Helper function to log to CSV
-def log_to_csv(email, image_link, image_filename, frame_name):
-    """Log email and image link to CSV."""
-    csv_path = "/home/ubuntu/birthday_photo_app/email_log.csv"
-    
-    # Create CSV if it doesn't exist
-    if not os.path.exists(csv_path):
-        with open(csv_path, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(['Timestamp', 'Frame', 'Email', 'Image Filename', 'Google Drive Link'])
-    
-    # Append new entry
-    with open(csv_path, 'a', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow([datetime.now().strftime('%Y-%m-%d %H:%M:%S'), frame_name, email, image_filename, image_link])
-
-# Sidebar for configuration
-st.sidebar.header("📋 Configuration")
-use_camera = st.sidebar.checkbox("Use Webcam", value=True)
-use_upload = st.sidebar.checkbox("Upload Photo", value=False)
-
-# Photo capture section
-st.header("📸 Capture or Upload Photo")
-
-if use_camera:
-    picture = st.camera_input("Take a picture")
-    if picture is not None:
-        st.session_state.original_image = Image.open(picture)
-
-if use_upload:
-    uploaded_file = st.file_uploader("Choose an image", type=['jpg', 'jpeg', 'png'])
-    if uploaded_file is not None:
-        st.session_state.original_image = Image.open(uploaded_file)
-
-# Preview and process
-if st.session_state.original_image is not None:
-    st.subheader("Original Photo")
-    st.image(st.session_state.original_image, use_column_width=True)
-    
-    # Process image with frame overlay
-    if st.button("✨ Apply Birthday Frame", use_container_width=True):
-        with st.spinner("Processing your photo..."):
-            st.session_state.processed_image = overlay_frame_on_photo(
-                st.session_state.original_image, 
-                frame_image,
-                frame_config
-            )
-        st.success("Frame applied successfully!")
-
-# Display processed image
-if st.session_state.processed_image is not None:
-    st.subheader("Your Framed Photo")
-    st.image(st.session_state.processed_image, use_column_width=True)
-    
-    # Save and email section
-    st.header("📧 Send Your Photo")
-    
-    recipient_email = st.text_input("Enter recipient email address", placeholder="example@email.com")
-    
-    if st.button("🎁 Send Framed Photo via Email", use_container_width=True):
-        if not recipient_email or '@' not in recipient_email:
-            st.error("Please enter a valid email address")
-        else:
-            with st.spinner("Processing and sending..."):
-                try:
-                    # Save processed image temporarily
-                    temp_image_path = f"/tmp/birthday_photo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-                    st.session_state.processed_image.save(temp_image_path, quality=95)
-                    
-                    # Upload to Google Drive
-                    gdrive_service = get_gdrive_service()
-                    if gdrive_service:
-                        folder_id = get_or_create_gdrive_folder(gdrive_service, "Birthday_Photos_Studio")
-                        if folder_id:
-                            image_link = upload_to_gdrive(gdrive_service, temp_image_path, folder_id)
-                            
-                            if image_link:
-                                # Send email
-                                if send_email_with_image(recipient_email, temp_image_path, image_link, selected_frame_name):
-                                    # Log to CSV
-                                    log_to_csv(recipient_email, image_link, os.path.basename(temp_image_path), selected_frame_name)
-                                    
-                                    st.success(f"✅ Photo sent successfully to {recipient_email}!")
-                                    st.info(f"📁 View on Google Drive: [Click here]({image_link})")
-                                else:
-                                    st.error("Failed to send email")
-                            else:
-                                st.error("Failed to upload to Google Drive")
-                        else:
-                            st.error("Failed to create/access Google Drive folder")
-                    else:
-                        st.error("Google Drive authentication failed")
-                    
-                    # Clean up temp file
-                    if os.path.exists(temp_image_path):
-                        os.remove(temp_image_path)
-                        
-                except Exception as e:
-                    st.error(f"An error occurred: {e}")
-    
-    # Download option
-    st.divider()
-    st.subheader("💾 Download Photo")
-    
-    img_byte_arr = io.BytesIO()
-    st.session_state.processed_image.save(img_byte_arr, format='PNG')
-    img_byte_arr.seek(0)
-    
-    st.download_button(
-        label="Download Framed Photo",
-        data=img_byte_arr,
-        file_name=f"birthday_photo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
-        mime="image/png",
-        use_container_width=True
+# ── Error State ────────────────────────────────────────────────
+if not FRAME_OK:
+    st.error(
+        "⚠️ **apostle_victor_frame.png not found.**  "
+        "Place the frame image in the same folder as `app.py`, then refresh.",
+        icon="🖼",
     )
-
-# View logs section
-st.divider()
-st.header("📊 Email Log")
-
-csv_path = "/home/ubuntu/birthday_photo_app/email_log.csv"
-if os.path.exists(csv_path):
-    df = st.read_csv(csv_path)
-    st.dataframe(df, use_container_width=True)
-else:
-    st.info("No emails sent yet. Send your first photo to see the log!")
