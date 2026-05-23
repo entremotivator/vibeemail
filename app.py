@@ -3,27 +3,33 @@ from PIL import Image
 import io
 import os
 import base64
+from datetime import datetime
 from streamlit.components.v1 import html as st_html
 
 # ── Page Config ────────────────────────────────────────────────
 st.set_page_config(
-    page_title="✦ Apostle Victor A. Howard Sr. – Birthday Celebration",
-    layout="centered",
+    page_title="✦ Apostle Victor A. Howard Sr. – Birthday",
+    layout="wide",
     initial_sidebar_state="collapsed",
 )
 
 # ── Frame Setup ────────────────────────────────────────────────
-FRAME_PATH = os.path.join(os.path.dirname(__file__), "apostle_victor_frame.png")
+FRAME_PATH = os.path.join(os.path.dirname(__file__), "apostle_victor_frame_transparent.png")
 FRAME_OK = os.path.exists(FRAME_PATH)
 
 if FRAME_OK:
-    frame_img = Image.open(FRAME_PATH)
     frame_b64 = base64.b64encode(open(FRAME_PATH, "rb").read()).decode()
 
-# ── Global CSS: Full-screen immersive design ───────────────────
+# ── Global CSS: Optimized for single desktop screen ───────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
 html, body,
 [data-testid="stAppViewContainer"],
@@ -32,95 +38,51 @@ html, body,
 .stMainBlockContainer {
   margin: 0 !important;
   padding: 0 !important;
-  width: 100vw !important;
+  width: 100% !important;
   height: 100vh !important;
   overflow: hidden !important;
   background: #0a0a0a !important;
 }
 
-[data-testid="stAppViewContainer"] > .main {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.stMainBlockContainer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 !important;
-}
-
-/* Hide Streamlit chrome */
 header, footer, [data-testid="stToolbar"], [data-testid="stDecoration"] {
   display: none !important;
 }
 
-/* Container styling */
-.main-container {
-  width: 100vw;
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  overflow: hidden;
+[data-testid="stAppViewContainer"] > .main {
+  padding: 0 !important;
 }
 
-.frame-container {
-  position: relative;
-  width: 90vmin;
-  height: auto;
-  max-width: 600px;
-  max-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.stMainBlockContainer {
+  padding: 0 !important;
+  max-width: 100% !important;
 }
 
-/* Typography */
+body {
+  font-family: 'Cormorant Garamond', serif;
+}
+
 h1, h2, h3 {
   font-family: 'Playfair Display', serif !important;
   color: #d4af37 !important;
-  text-align: center !important;
-  text-transform: uppercase !important;
-  letter-spacing: 2px !important;
-}
-
-h1 {
-  font-size: 2.5rem !important;
-  font-weight: 900 !important;
-  margin: 0 !important;
-}
-
-h2 {
-  font-size: 1.8rem !important;
-  font-weight: 700 !important;
-  margin: 1rem 0 !important;
 }
 
 p {
-  font-family: 'Cormorant Garamond', serif !important;
   color: #e0e0e0 !important;
-  font-size: 1.1rem !important;
-  text-align: center !important;
 }
 
-/* Button styling */
 button {
   background: linear-gradient(135deg, #d4af37 0%, #f0e68c 100%) !important;
   color: #1a1a2e !important;
   border: none !important;
-  padding: 12px 28px !important;
-  font-size: 1rem !important;
+  padding: 8px 16px !important;
+  font-size: 0.9rem !important;
   font-weight: 700 !important;
-  border-radius: 8px !important;
+  border-radius: 6px !important;
   cursor: pointer !important;
   transition: all 0.3s ease !important;
   font-family: 'Cormorant Garamond', serif !important;
   text-transform: uppercase !important;
   letter-spacing: 1px !important;
-  margin: 8px !important;
   box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3) !important;
 }
 
@@ -129,60 +91,6 @@ button:hover {
   box-shadow: 0 6px 20px rgba(212, 175, 55, 0.5) !important;
 }
 
-button:active {
-  transform: translateY(0) !important;
-}
-
-/* Input styling */
-input[type="text"], input[type="email"], textarea {
-  background: rgba(255, 255, 255, 0.05) !important;
-  color: #e0e0e0 !important;
-  border: 2px solid #d4af37 !important;
-  padding: 10px 15px !important;
-  border-radius: 6px !important;
-  font-family: 'Cormorant Garamond', serif !important;
-  font-size: 1rem !important;
-}
-
-input[type="text"]:focus, input[type="email"]:focus, textarea:focus {
-  outline: none !important;
-  border-color: #f0e68c !important;
-  box-shadow: 0 0 10px rgba(212, 175, 55, 0.3) !important;
-}
-
-/* Gallery styling */
-.gallery-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 12px;
-  margin-top: 20px;
-  padding: 20px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 8px;
-  border: 2px solid #d4af37;
-}
-
-.gallery-item {
-  position: relative;
-  overflow: hidden;
-  border-radius: 6px;
-  aspect-ratio: 9/16;
-  border: 2px solid #d4af37;
-  transition: all 0.3s ease;
-}
-
-.gallery-item:hover {
-  transform: scale(1.05);
-  box-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
-}
-
-.gallery-item img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* Status messages */
 .status-success {
   color: #4ade80 !important;
   font-weight: 700 !important;
@@ -197,46 +105,10 @@ input[type="text"]:focus, input[type="email"]:focus, textarea:focus {
   color: #60a5fa !important;
   font-weight: 700 !important;
 }
-
-/* Overlay styling */
-.overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.8);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.overlay.open {
-  display: flex;
-}
-
-.overlay-content {
-  background: #1a1a2e;
-  padding: 30px;
-  border-radius: 12px;
-  border: 2px solid #d4af37;
-  max-width: 90vw;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  h1 { font-size: 1.8rem !important; }
-  h2 { font-size: 1.4rem !important; }
-  p { font-size: 1rem !important; }
-  button { padding: 10px 20px !important; font-size: 0.9rem !important; }
-}
 </style>
 """, unsafe_allow_html=True)
 
-# ── HTML/Canvas/Camera Interface ───────────────────────────────
+# ── HTML/Canvas/Camera Interface (Single Screen) ───────────────
 if FRAME_OK:
     st_html(f"""
     <!DOCTYPE html>
@@ -245,45 +117,85 @@ if FRAME_OK:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body {{ margin: 0; padding: 20px; background: #0a0a0a; font-family: 'Cormorant Garamond', serif; }}
-        .main-wrapper {{ 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
-            min-height: 100vh;
-            gap: 20px;
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }}
+        
+        html, body {{
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            background: #0a0a0a;
+            font-family: 'Cormorant Garamond', serif;
+        }}
+        
+        .container {{
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 20px;
+            gap: 15px;
+        }}
+        
+        .header {{
+            text-align: center;
+        }}
+        
         .title {{
             font-family: 'Playfair Display', serif;
-            font-size: 2.2rem;
+            font-size: 1.6rem;
             font-weight: 900;
             color: #d4af37;
-            text-align: center;
             text-transform: uppercase;
             letter-spacing: 2px;
             margin: 0;
         }}
+        
         .subtitle {{
             font-family: 'Playfair Display', serif;
-            font-size: 1.4rem;
+            font-size: 1rem;
             color: #f0e68c;
-            text-align: center;
-            margin: 0;
+            margin: 5px 0 0 0;
         }}
+        
+        .frame-wrapper {{
+            position: relative;
+            display: inline-block;
+            max-height: 70vh;
+            width: auto;
+        }}
+        
+        #frameImg {{
+            width: auto;
+            max-height: 70vh;
+            height: auto;
+            display: block;
+        }}
+        
+        canvas {{
+            display: none;
+        }}
+        
         .controls {{
             display: flex;
             gap: 10px;
             justify-content: center;
             flex-wrap: wrap;
-            margin: 15px 0;
+            align-items: center;
         }}
+        
         button {{
             background: linear-gradient(135deg, #d4af37 0%, #f0e68c 100%);
             color: #1a1a2e;
             border: none;
-            padding: 12px 24px;
-            font-size: 1rem;
+            padding: 10px 20px;
+            font-size: 0.9rem;
             font-weight: 700;
             border-radius: 6px;
             cursor: pointer;
@@ -292,71 +204,85 @@ if FRAME_OK:
             text-transform: uppercase;
             letter-spacing: 1px;
             box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+            white-space: nowrap;
         }}
-        button:hover {{ transform: translateY(-2px); box-shadow: 0 6px 20px rgba(212, 175, 55, 0.5); }}
-        button:disabled {{ opacity: 0.5; cursor: not-allowed; }}
-        .frame-wrapper {{
-            position: relative;
-            display: inline-block;
-            max-width: 100%;
-            width: 90vmin;
-            max-width: 600px;
+        
+        button:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(212, 175, 55, 0.5);
         }}
-        #frameImg {{
-            width: 100%;
-            height: auto;
-            display: block;
+        
+        button:disabled {{
+            opacity: 0.5;
+            cursor: not-allowed;
         }}
-        canvas {{
-            display: none;
-        }}
+        
         .status {{
             font-family: 'Cormorant Garamond', serif;
-            font-size: 1.1rem;
+            font-size: 1rem;
             color: #e0e0e0;
             text-align: center;
-            min-height: 30px;
+            min-height: 25px;
+            height: 25px;
         }}
-        .status.success {{ color: #4ade80; font-weight: 700; }}
-        .status.error {{ color: #f87171; font-weight: 700; }}
-        .status.info {{ color: #60a5fa; font-weight: 700; }}
+        
+        .status.success {{
+            color: #4ade80;
+            font-weight: 700;
+        }}
+        
+        .status.error {{
+            color: #f87171;
+            font-weight: 700;
+        }}
+        
+        .status.info {{
+            color: #60a5fa;
+            font-weight: 700;
+        }}
+        
         .gallery-overlay {{
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 0, 0, 0.95);
             display: none;
             align-items: center;
             justify-content: center;
             z-index: 1000;
         }}
+        
         .gallery-overlay.open {{
             display: flex;
         }}
+        
         .gallery-content {{
             background: #1a1a2e;
-            padding: 30px;
+            padding: 20px;
             border-radius: 12px;
             border: 2px solid #d4af37;
             max-width: 90vw;
             max-height: 90vh;
             overflow-y: auto;
         }}
+        
         .gallery-title {{
             font-family: 'Playfair Display', serif;
-            font-size: 1.8rem;
+            font-size: 1.4rem;
             color: #d4af37;
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }}
+        
         .gallery-grid {{
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
         }}
+        
         .gallery-item {{
             position: relative;
             overflow: hidden;
@@ -366,54 +292,62 @@ if FRAME_OK:
             transition: all 0.3s ease;
             cursor: pointer;
         }}
+        
         .gallery-item:hover {{
             transform: scale(1.05);
             box-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
         }}
+        
         .gallery-item img {{
             width: 100%;
             height: 100%;
             object-fit: cover;
         }}
+        
         .gallery-item-btn {{
             position: absolute;
-            bottom: 5px;
-            right: 5px;
+            bottom: 3px;
+            right: 3px;
             background: rgba(212, 175, 55, 0.9);
             color: #1a1a2e;
             border: none;
-            padding: 6px 10px;
+            padding: 4px 8px;
             border-radius: 4px;
-            font-size: 0.8rem;
+            font-size: 0.7rem;
             cursor: pointer;
             opacity: 0;
             transition: opacity 0.3s;
         }}
+        
         .gallery-item:hover .gallery-item-btn {{
             opacity: 1;
         }}
+        
         .gallery-empty {{
             text-align: center;
             color: #999;
-            padding: 40px;
+            padding: 30px;
             font-family: 'Cormorant Garamond', serif;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
         }}
+        
         .gallery-controls {{
             display: flex;
             gap: 10px;
             justify-content: center;
             flex-wrap: wrap;
         }}
+        
         input[type="file"] {{
             display: none;
         }}
+        
         .file-label {{
             background: linear-gradient(135deg, #d4af37 0%, #f0e68c 100%);
             color: #1a1a2e;
             border: none;
-            padding: 12px 24px;
-            font-size: 1rem;
+            padding: 10px 20px;
+            font-size: 0.9rem;
             font-weight: 700;
             border-radius: 6px;
             cursor: pointer;
@@ -422,7 +356,9 @@ if FRAME_OK:
             letter-spacing: 1px;
             box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
             display: inline-block;
+            white-space: nowrap;
         }}
+        
         .file-label:hover {{
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(212, 175, 55, 0.5);
@@ -430,18 +366,11 @@ if FRAME_OK:
     </style>
     </head>
     <body>
-    <div class="main-wrapper">
-        <h1 class="title">✦ Apostle Victor A. Howard Sr. ✦</h1>
-        <p class="subtitle">Birthday Celebration Photo Frame</p>
-        
-        <div class="controls">
-            <button id="camBtn" onclick="toggleCamera()">📷 Camera</button>
-            <label class="file-label" for="fi">📁 Upload</label>
-            <input type="file" id="fi" accept="image/*">
-            <button id="galBtn" onclick="openGal()" style="display:none;">🖼 Gallery (<span id="galCount">0</span>)</button>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">✦ Apostle Victor A. Howard Sr. ✦</h1>
+            <p class="subtitle">Birthday Celebration</p>
         </div>
-        
-        <div class="status" id="status">Ready to capture your photo</div>
         
         <div class="frame-wrapper">
             <img id="frameImg" src="data:image/png;base64,{frame_b64}" alt="Frame">
@@ -450,10 +379,15 @@ if FRAME_OK:
             <canvas id="upC"></canvas>
         </div>
         
-        <div class="controls" id="camControls" style="display:none;">
+        <div class="status" id="status">Initializing camera...</div>
+        
+        <div class="controls">
             <button id="snapBtn" onclick="doSnap()">📸 Capture</button>
-            <button id="flipBtn" onclick="flipCam()">🔄 Flip</button>
+            <button id="flipBtn" onclick="flipCam()">🔄 Flip Camera</button>
             <button id="retakeBtn" onclick="doRetake()" hidden>🔁 Retake</button>
+            <label class="file-label" for="fi">📁 Upload</label>
+            <input type="file" id="fi" accept="image/*">
+            <button id="galBtn" onclick="openGal()" style="display:none;">🖼 Gallery (<span id="galCount">0</span>)</button>
         </div>
     </div>
     
@@ -475,8 +409,6 @@ if FRAME_OK:
     const snapC = document.getElementById('snapC');
     const upC = document.getElementById('upC');
     const status = document.getElementById('status');
-    const camBtn = document.getElementById('camBtn');
-    const camControls = document.getElementById('camControls');
     const galBtn = document.getElementById('galBtn');
     
     let vid, animId = null, snapped = false, facing = 'environment';
@@ -522,22 +454,6 @@ if FRAME_OK:
         ctx.drawImage(frameImg, 0, 0, FW, FH);
     }}
     
-    function toggleCamera() {{
-        if (vid && vid.srcObject) {{
-            vid.srcObject.getTracks().forEach(t => t.stop());
-            vid = null;
-            camBtn.textContent = '📷 Camera';
-            camControls.style.display = 'none';
-            snapped = false;
-            liveC.style.display = 'none';
-            snapC.style.display = 'none';
-            status.textContent = 'Camera closed';
-            status.className = 'status info';
-        }} else {{
-            startCamera(facing);
-        }}
-    }}
-    
     function startCamera(f) {{
         facing = f;
         status.textContent = 'Requesting camera access...';
@@ -547,9 +463,7 @@ if FRAME_OK:
                 vid = document.createElement('video');
                 vid.srcObject = stream;
                 vid.play();
-                camBtn.textContent = '📷 Close Camera';
-                camControls.style.display = 'flex';
-                status.textContent = facing === 'environment' ? '📷 Rear camera — aim & capture' : '🤳 Front camera active';
+                status.textContent = facing === 'environment' ? '📷 Ready to capture' : '🤳 Front camera active';
                 status.className = 'status info';
                 snapped = false;
                 liveC.style.display = 'block';
@@ -577,7 +491,7 @@ if FRAME_OK:
     }}
     
     function doSnap() {{
-        if (!vid.videoWidth) return;
+        if (!vid || !vid.videoWidth) return;
         snapped = true;
         if (animId) cancelAnimationFrame(animId);
         composite(vid, snapC);
@@ -586,11 +500,14 @@ if FRAME_OK:
         document.getElementById('snapBtn').hidden = true;
         document.getElementById('flipBtn').hidden = true;
         document.getElementById('retakeBtn').hidden = false;
-        status.textContent = '✅ Photo captured!';
+        status.textContent = '✅ Photo captured! Auto-saving...';
         status.className = 'status success';
         
-        // Add to gallery
-        addGallery(snapC);
+        // Auto-save to gallery
+        setTimeout(() => {{
+            addGallery(snapC);
+            status.textContent = '✅ Photo saved to gallery!';
+        }}, 500);
     }}
     
     function doRetake() {{
@@ -600,7 +517,7 @@ if FRAME_OK:
         document.getElementById('snapBtn').hidden = false;
         document.getElementById('flipBtn').hidden = false;
         document.getElementById('retakeBtn').hidden = true;
-        status.textContent = '📷 Ready — aim and capture';
+        status.textContent = '📷 Ready to capture';
         status.className = 'status info';
         startLive();
     }}
@@ -626,7 +543,7 @@ if FRAME_OK:
                 function go() {{
                     composite(img, upC);
                     upC.style.display = 'block';
-                    status.textContent = '✅ Photo framed — save to gallery!';
+                    status.textContent = '✅ Photo framed & saved!';
                     status.className = 'status success';
                     addGallery(upC);
                 }}
@@ -661,12 +578,12 @@ if FRAME_OK:
             img.src = url;
             const btn = document.createElement('button');
             btn.className = 'gallery-item-btn';
-            btn.textContent = '⬇ Save';
+            btn.textContent = '⬇';
             btn.onclick = e => {{
                 e.stopPropagation();
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `apostle_victor_${{i + 1}}.png`;
+                a.download = `apostle_victor_${{i + 1}}_${{new Date().getTime()}}.png`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
@@ -697,6 +614,13 @@ if FRAME_OK:
         }}
     }}
     
+    // Auto-start camera on page load
+    window.addEventListener('load', () => {{
+        setTimeout(() => {{
+            startCamera('environment');
+        }}, 500);
+    }});
+    
     // Sync height
     function syncH() {{
         try {{
@@ -707,12 +631,12 @@ if FRAME_OK:
     </script>
     </body>
     </html>
-    """, height=1200)
+    """, height=900)
 
 # ── Error State ────────────────────────────────────────────────
 if not FRAME_OK:
     st.error(
-        "⚠️ **apostle_victor_frame.png not found.**  "
-        "Place the frame image in the same folder as `app.py`, then refresh.",
+        "⚠️ **apostle_victor_frame_transparent.png not found.**  "
+        "The transparent frame file is missing.",
         icon="🖼",
     )
