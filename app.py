@@ -40,7 +40,7 @@ section[data-testid="stMain"] {
 """, unsafe_allow_html=True)
 
 # ── Load apostle_victor_frame.png ─────────────────────────────
-FRAME_PATH = os.path.join(os.path.dirname(__file__), "apostle_victor_frame_transparent.png")
+FRAME_PATH = os.path.join(os.path.dirname(__file__), "apostle_victor_frame.png")
 try:
     with open(FRAME_PATH, "rb") as f:
         FRAME_B64 = base64.b64encode(f.read()).decode()
@@ -93,25 +93,25 @@ html,body{{
 
 /* HEADER */
 header{{
-  text-align:center;padding:12px 18px 8px;
+  text-align:center;padding:7px 18px 5px;
   border-bottom:1px solid var(--faint);
   background:rgba(10,10,26,.97);
 }}
 header h1{{
-  font-size:clamp(1.05rem,3.8vw,1.65rem);font-weight:900;
+  font-size:clamp(.95rem,3.4vw,1.45rem);font-weight:900;
   color:var(--gold3);letter-spacing:.14em;
-  text-shadow:0 0 24px rgba(255,245,200,.3);line-height:1.15;
+  text-shadow:0 0 24px rgba(255,245,200,.3);line-height:1.1;
 }}
 header .sub{{
   font-family:'Cormorant Garamond',serif;font-style:italic;
-  font-size:clamp(.74rem,1.9vw,.88rem);
-  color:rgba(212,175,55,.5);letter-spacing:.08em;margin-top:2px;
+  font-size:clamp(.68rem,1.7vw,.82rem);
+  color:rgba(212,175,55,.5);letter-spacing:.08em;margin-top:1px;
 }}
 
 /* TABS */
 .tabs{{display:flex;border-bottom:1px solid var(--faint);background:var(--bg2);}}
 .tab{{
-  flex:1;padding:9px 4px;text-align:center;
+  flex:1;padding:6px 4px;text-align:center;
   font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;
   color:rgba(212,175,55,.4);cursor:pointer;
   border-bottom:2px solid transparent;transition:all .2s;
@@ -123,8 +123,8 @@ header .sub{{
 .panels{{position:relative;overflow:hidden;min-height:0;}}
 .panel{{
   position:absolute;inset:0;
-  display:flex;flex-direction:column;gap:7px;
-  padding:10px 14px;
+  display:flex;flex-direction:column;gap:4px;
+  padding:6px 6px;
   opacity:0;pointer-events:none;transition:opacity .18s;
   overflow:hidden;
 }}
@@ -157,7 +157,7 @@ header .sub{{
 /* BUTTONS */
 .btnrow{{display:flex;gap:7px;flex-shrink:0;}}
 .btn{{
-  flex:1;padding:11px 5px;border:none;border-radius:5px;cursor:pointer;
+  flex:1;padding:8px 5px;border:none;border-radius:5px;cursor:pointer;
   font-family:'Playfair Display',serif;font-weight:700;
   font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;
   transition:opacity .15s;
@@ -180,7 +180,7 @@ header .sub{{
 /* DROP ZONE */
 .drop{{
   border:2px dashed rgba(212,175,55,.28);border-radius:8px;
-  padding:18px 12px;text-align:center;cursor:pointer;
+  padding:12px 12px;text-align:center;cursor:pointer;
   background:var(--bg2);transition:border-color .2s;flex-shrink:0;
 }}
 .drop:hover{{border-color:var(--gold);}}
@@ -219,9 +219,9 @@ header .sub{{
 
 /* FOOTER */
 footer{{
-  text-align:center;padding:7px 16px;
+  text-align:center;padding:4px 16px;
   font-family:'Cormorant Garamond',serif;font-style:italic;
-  font-size:.74rem;color:rgba(212,175,55,.25);letter-spacing:.06em;
+  font-size:.68rem;color:rgba(212,175,55,.25);letter-spacing:.06em;
   border-top:1px solid var(--faint);background:rgba(10,10,26,.97);flex-shrink:0;
 }}
 </style>
