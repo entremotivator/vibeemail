@@ -40,7 +40,7 @@ section[data-testid="stMain"] {
 """, unsafe_allow_html=True)
 
 # ── Load apostle_victor_frame.png ─────────────────────────────
-FRAME_PATH = os.path.join(os.path.dirname(__file__), "apostle_victor_frame.png")
+FRAME_PATH = os.path.join(os.path.dirname(__file__), "apostle_victor_frame_transparent.png")
 try:
     with open(FRAME_PATH, "rb") as f:
         FRAME_B64 = base64.b64encode(f.read()).decode()
