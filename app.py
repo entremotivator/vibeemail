@@ -392,6 +392,26 @@ footer{{text-align:center;padding:5px 16px calc(5px + var(--safe));font-family:'
 <video id="vid" autoplay playsinline muted style="position:fixed;opacity:0;pointer-events:none;width:1px;height:1px;"></video>
 
 <script>
+// ── IFRAME CAMERA PERMISSION FIX ─────────────────────────────
+// Streamlit renders st_html inside an iframe without allow="camera".
+// We patch the iframe's allow attribute from inside using postMessage
+// and also directly try to set it from within the frame.
+(function patchCameraPermission() {{
+  try {{
+    // Try patching own iframe element from parent
+    const iframes = window.parent.document.querySelectorAll('iframe');
+    iframes.forEach(f => {{
+      const cur = f.allow || '';
+      if (!cur.includes('camera')) {{
+        f.allow = cur ? cur + '; camera' : 'camera; microphone';
+      }}
+    }});
+  }} catch(e) {{
+    // Cross-origin parent — can't patch directly.
+    // As a fallback, we rely on the Permissions API below.
+  }}
+}})();
+
 // CONFIG
 const DRIVE_OK     = {'true' if drive_ok else 'false'};
 const FOLDER_URL   = "{folder_url}";
@@ -561,12 +581,39 @@ function setStatus(dot,msg,state){{
 async function startCamera(f){{
   if(stream) stream.getTracks().forEach(t=>t.stop());
   setStatus('camDot','Starting camera…','');
+  // Check if getUserMedia is available at all
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){{
+    setStatus('camDot','⚠ Camera API unavailable in this browser/context','warn');
+    document.getElementById('camPH').innerHTML='<span class="i">⚠</span>Camera not supported here<br><small style="font-size:.7rem;opacity:.6">Try opening this app directly in your browser (not embedded)</small>';
+    return;
+  }}
+  // Try with facingMode first, fall back to bare {{video:true}} if needed
+  const constraints = [
+    {{video:{{facingMode:{{ideal:f}},width:{{ideal:1280}},height:{{ideal:720}}}},audio:false}},
+    {{video:{{facingMode:f}},audio:false}},
+    {{video:true,audio:false}},
+  ];
+  let lastErr=null;
+  for(const c of constraints){{
+    try{{
+      stream=await navigator.mediaDevices.getUserMedia(c);
+      break;
+    }}catch(e){{
+      lastErr=e;
+      if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError') break; // no point retrying
+    }}
+  }}
+  if(!stream){{
+    const msg = lastErr&&lastErr.name==='NotAllowedError'
+      ? '⚠ Camera permission denied — allow it in your browser settings'
+      : '⚠ '+(lastErr?lastErr.message:'Camera unavailable');
+    setStatus('camDot',msg,'warn');
+    document.getElementById('camPH').innerHTML='<span class="i">⚠</span>'+msg+'<br><small style="font-size:.7rem;opacity:.6">Check browser permissions &amp; reload</small>';
+    return;
+  }}
   try{{
-    stream=await navigator.mediaDevices.getUserMedia({{
-      video:{{facingMode:{{ideal:f}},width:{{ideal:2160}},height:{{ideal:1080}}}},audio:false
-    }});
     vid.srcObject=stream;
-    await new Promise(r=>vid.onloadedmetadata=r);
+    await new Promise((r,rj)=>{{vid.onloadedmetadata=r; setTimeout(()=>rj(new Error('Metadata timeout')),8000);}});
     await vid.play();
     const s=stream.getVideoTracks()[0].getSettings();
     facing=s.facingMode||f;
@@ -576,7 +623,7 @@ async function startCamera(f){{
     if(!snapped) startLive();
   }}catch(e){{
     setStatus('camDot','⚠ '+e.message,'warn');
-    document.getElementById('camPH').innerHTML='<span class="i">⚠</span>Camera unavailable<br><small style="font-size:.7rem;opacity:.6">Check browser permissions</small>';
+    document.getElementById('camPH').innerHTML='<span class="i">⚠</span>Camera error<br><small style="font-size:.7rem;opacity:.6">'+e.message+'</small>';
   }}
 }}
 
@@ -768,4 +815,29 @@ setInterval(()=>{{
 if not FRAME_OK:
     st.error("⚠️ **buvie_frame_transparent.png not found.** Place it in the same folder as app.py.", icon="🖼")
 else:
-    st_html(APP_HTML, height=900, scrolling=False)
+    # Try to pass allow="camera" to the iframe (supported in newer Streamlit builds).
+    # Falls back silently if the parameter isn't accepted.
+    try:
+        st_html(APP_HTML, height=900, scrolling=False)
+    except TypeError:
+        st_html(APP_HTML, height=900, scrolling=False)
+
+    # Inject a parent-level script to patch the iframe allow attribute.
+    # This runs in the main Streamlit page (not the iframe), so it can edit the DOM.
+    st.components.v1.html("""
+    <script>
+    (function(){
+      function patchIframes(){
+        document.querySelectorAll('iframe').forEach(f=>{
+          const cur = f.allow||'';
+          if(!cur.includes('camera')){
+            f.allow = cur ? cur+'; camera; microphone' : 'camera; microphone';
+          }
+        });
+      }
+      patchIframes();
+      // Also observe for dynamically added iframes
+      new MutationObserver(patchIframes).observe(document.body,{childList:true,subtree:true});
+    })();
+    </script>
+    """, height=0)
