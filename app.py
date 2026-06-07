@@ -51,7 +51,7 @@ except FileNotFoundError:
 
 # Cutout rectangle inside buvie_frame_transparent.png (pixels at natural resolution)
 # Adjust these values to match where the photo goes in YOUR frame image
-CUT = dict(top=375, bottom=1243, left=234, right=627)
+CUT = dict(top=304, bottom=1223, left=176, right=911)
 
 # ── Build the full-viewport single-page component ─────────────
 APP_HTML = f"""<!DOCTYPE html>
@@ -398,22 +398,16 @@ async function startCamera(f){{
     {{video:true,audio:false}}
   ];
   for(const c of tries){{
-    try{{
-      stream=await navigator.mediaDevices.getUserMedia(c);
-      break;
-    }}catch(e){{
+    try{{ stream=await navigator.mediaDevices.getUserMedia(c); break; }}
+    catch(e){{
       if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError'){{
-        camSt.textContent='⚠ Camera permission denied — allow it in browser settings';
-        return;
+        camSt.textContent='⚠ Camera permission denied — allow it in browser settings'; return;
       }}
     }}
   }}
   if(!stream){{ camSt.textContent='⚠ Could not access camera'; return; }}
   vid.srcObject=stream;
-  await new Promise((res,rej)=>{{
-    vid.onloadedmetadata=res;
-    setTimeout(()=>rej(new Error('timeout')),8000);
-  }}).catch(()=>{{}});
+  await new Promise((res,rej)=>{{ vid.onloadedmetadata=res; setTimeout(()=>rej(),8000); }}).catch(()=>{{}});
   await vid.play().catch(()=>{{}});
   const s=stream.getVideoTracks()[0].getSettings();
   facing=s.facingMode||f;
@@ -553,9 +547,7 @@ if not FRAME_OK:
         icon="🖼",
     )
 else:
-    # Patch ALL iframes in the parent Streamlit page to allow camera.
-    # This runs in the top-level document (not inside the component iframe),
-    # so it can set allow="camera *" before the component iframe is interacted with.
+    # Patch iframes in parent page to allow camera access
     st.components.v1.html("""
     <script>
     (function(){
