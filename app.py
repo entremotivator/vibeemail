@@ -51,7 +51,7 @@ except FileNotFoundError:
 
 # Cutout rectangle inside buvie_frame_transparent.png (pixels at natural resolution)
 # Adjust these values to match where the photo goes in YOUR frame image
-CUT = dict(top=375, bottom=1243, left=234, right=627)
+CUT = dict(top=289, bottom=1231, left=162, right=924)
 
 # ── Build the full-viewport single-page component ─────────────
 APP_HTML = f"""<!DOCTYPE html>
